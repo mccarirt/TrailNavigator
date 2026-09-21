@@ -69,7 +69,6 @@ export const StatsBar: React.FC<StatsBarProps> = ({
   distanceWalked = 0,
   units = 'imperial',
 }) => {
-  const isDayMode = highContrastMode === 'sunlight-bright';
 
   const remaining = formatDist(distanceRemaining, units);
   const soFar = formatDist(distanceSoFar, units);
@@ -82,23 +81,23 @@ export const StatsBar: React.FC<StatsBarProps> = ({
   return (
     <div
       id="navigation-stats-bar"
-      className={`w-full px-2 py-2 border-b transition-colors select-none ${
-        isDayMode
-          ? 'bg-slate-100 border-slate-300 text-slate-900'
-          : 'bg-slate-950 border-slate-800 text-slate-100'
-      }`}
+      className="w-full px-2 py-2 select-none bg-[var(--surface)] text-[var(--text)]"
+      style={{ borderBottom: 'var(--border-w-strong) solid var(--border-color)' }}
     >
       <div className="max-w-xl mx-auto space-y-1.5">
         {/* Header with dismiss handle when slideable */}
         {onClose && (
-          <div className="flex items-center justify-between pb-1 px-1 border-b border-slate-200/50 dark:border-slate-800/50 mb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <div
+            className="flex items-center justify-between pb-1 px-1 mb-1"
+            style={{ borderBottom: '1px solid var(--border-color)' }}
+          >
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
               Trip Stats & Time
             </span>
             <button
               id="close-stats-panel-btn"
               onClick={onClose}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition"
+              className="p-1 rounded-md text-[var(--text-secondary)] hover:opacity-70 transition"
               title="Hide stats panel"
               aria-label="Hide stats panel"
             >
@@ -112,16 +111,14 @@ export const StatsBar: React.FC<StatsBarProps> = ({
           {/* 1. Total Time */}
           <div
             id="stat-total-time"
-            className={`p-1.5 rounded-xl border flex flex-col justify-between ${
-              isDayMode ? 'bg-white border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
+            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1">
-              <Timer className="w-3 h-3 text-sky-400 shrink-0" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+              <Timer className="w-3 h-3 text-[var(--info)] shrink-0" />
               <span className="truncate">Total Time</span>
             </div>
             <div className="mt-0.5">
-              <span className="text-base sm:text-lg font-black tracking-tight font-mono">
+              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
                 {formatTotalTime(totalElapsedSeconds)}
               </span>
             </div>
@@ -130,35 +127,31 @@ export const StatsBar: React.FC<StatsBarProps> = ({
           {/* 2. Pace */}
           <div
             id="stat-pace"
-            className={`p-1.5 rounded-xl border flex flex-col justify-between ${
-              isDayMode ? 'bg-white border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
+            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1">
-              <Footprints className="w-3 h-3 text-amber-400 shrink-0" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+              <Footprints className="w-3 h-3 text-[var(--accent)] shrink-0" />
               <span className="truncate">Pace</span>
             </div>
             <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
-              <span className="text-base sm:text-lg font-black tracking-tight font-mono text-amber-400">
+              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
                 {pace.val}
               </span>
-              <span className="text-[9px] font-bold text-slate-400">{pace.unit}</span>
+              <span className="text-[9px] font-bold text-[var(--text-secondary)]">{pace.unit}</span>
             </div>
           </div>
 
           {/* 3. Time Remaining */}
           <div
             id="stat-time-remaining"
-            className={`p-1.5 rounded-xl border flex flex-col justify-between ${
-              isDayMode ? 'bg-white border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
+            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1">
-              <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+              <Clock className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
               <span className="truncate">Time Left</span>
             </div>
             <div className="mt-0.5">
-              <span className="text-base sm:text-lg font-black tracking-tight text-emerald-400 font-mono">
+              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
                 {formatTimeRemaining(estimatedTimeRemainingSeconds, distanceRemaining)}
               </span>
             </div>
@@ -167,56 +160,47 @@ export const StatsBar: React.FC<StatsBarProps> = ({
           {/* 4. Distance Remaining */}
           <div
             id="stat-dist-remaining"
-            className={`p-1.5 rounded-xl border flex flex-col justify-between ${
-              isDayMode ? 'bg-white border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'
-            }`}
+            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1">
-              <Route className="w-3 h-3 text-emerald-500 shrink-0" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+              <Route className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
               <span className="truncate">{isReverseMode ? 'To Start' : 'Dist Left'}</span>
             </div>
             <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
-              <span className="text-base sm:text-lg font-black tracking-tight text-emerald-500 font-mono">
+              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
                 {remaining.val}
               </span>
-              <span className="text-xs font-bold text-slate-400">{remaining.unit}</span>
+              <span className="text-xs font-bold text-[var(--text-secondary)]">{remaining.unit}</span>
             </div>
           </div>
         </div>
 
         {/* Secondary Sub-Row: Distance Completed, Distance Actually Walked & Offset from Trail */}
-        <div className="flex flex-wrap items-center justify-between gap-y-1 px-2 text-[11px] font-bold text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-y-1 px-2 text-[11px] font-bold text-[var(--text-secondary)]">
           <div className="flex items-center gap-3">
             <div>
-              Along Trail:{' '}
-              <strong className={isDayMode ? 'text-slate-900' : 'text-slate-200'}>
-                {soFar.val} {soFar.unit}
-              </strong>
+              Along Trail: <strong className="text-[var(--text)]">{soFar.val} {soFar.unit}</strong>
             </div>
             <div id="stat-distance-walked">
-              Walked:{' '}
-              <strong className={isDayMode ? 'text-blue-700' : 'text-amber-400'}>
-                {walked.val} {walked.unit}
-              </strong>
+              Walked: <strong className="text-[var(--accent)]">{walked.val} {walked.unit}</strong>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5">
             <span>Trail offset:</span>
             <span
-              className={`px-1.5 py-0.5 rounded font-black ${
+              className={`px-1.5 py-0.5 rounded font-extrabold ${isDistAlert ? 'animate-pulse' : ''}`}
+              style={
                 isDistAlert
-                  ? 'bg-rose-600 text-white animate-pulse'
+                  ? { background: 'var(--danger)', color: '#fff' }
                   : isDistWarning
-                  ? 'bg-amber-500 text-black'
-                  : isDayMode
-                  ? 'text-slate-800 font-extrabold'
-                  : 'text-slate-200'
-              }`}
+                  ? { background: 'var(--accent)', color: '#fff' }
+                  : { color: 'var(--text)' }
+              }
             >
               {fromTrailText}
             </span>
-            {isDistAlert && <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
+            {isDistAlert && <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)]" />}
           </div>
         </div>
       </div>

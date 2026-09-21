@@ -34,7 +34,6 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const isDayMode = highContrastMode === 'sunlight-bright';
   const dist = formatDist(totalDistanceMeters, units);
   const gain = formatElevationParts(elevationGainMeters, units);
 
@@ -63,35 +62,38 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
     >
       <div
         id="finish-summary-modal-card"
-        className={`w-full max-w-md rounded-3xl p-6 shadow-2xl border transition-all text-center relative ${
-          isDayMode
-            ? 'bg-white border-slate-200 text-slate-900'
-            : 'bg-slate-900 border-slate-700 text-white'
-        }`}
+        className="w-full max-w-md rounded-[var(--radius-lg)] p-6 shadow-2xl text-center relative bg-[var(--surface)] text-[var(--text)]"
+        style={{ border: 'var(--border-w-strong) solid var(--border-color)' }}
       >
         {/* Close icon */}
         <button
           id="finish-summary-close-btn"
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition"
+          className="absolute top-4 right-4 p-2 rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:opacity-70 transition"
           aria-label="Close summary and view map"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Celebratory Icon */}
-        <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-bounce">
+        <div
+          className="w-16 h-16 mx-auto mb-3 rounded-[var(--radius-lg)] flex items-center justify-center shadow-lg animate-bounce"
+          style={{ background: 'color-mix(in srgb, var(--accent-2) 20%, transparent)', color: 'var(--accent-2)', border: '1px solid var(--accent-2)' }}
+        >
           <Trophy className="w-9 h-9" />
         </div>
 
-        <div className="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-500 text-white mb-2 shadow-sm">
+        <div
+          className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider text-white mb-2 shadow-sm"
+          style={{ background: 'var(--accent-2)' }}
+        >
           Destination Reached
         </div>
 
-        <h2 id="finish-summary-title" className="text-2xl font-black tracking-tight mb-1">
+        <h2 id="finish-summary-title" className="text-2xl font-extrabold tracking-tight mb-1 font-[family-name:var(--font-display)]">
           Trail Completed!
         </h2>
-        <p className="text-sm font-semibold text-slate-400 mb-6 truncate max-w-xs mx-auto">
+        <p className="text-sm font-semibold text-[var(--text-secondary)] mb-6 truncate max-w-xs mx-auto">
           {trailName}
         </p>
 
@@ -100,15 +102,13 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
           {/* Time */}
           <div
             id="finish-summary-time-tile"
-            className={`p-3 rounded-2xl border text-center ${
-              isDayMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/80 border-slate-700/80'
-            }`}
+            className="p-3 rounded-[var(--radius-md)] border text-center bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <Clock className="w-4 h-4 mx-auto mb-1 text-sky-400" />
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <Clock className="w-4 h-4 mx-auto mb-1 text-[var(--info)]" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
               Time
             </div>
-            <div className="text-base sm:text-lg font-black tracking-tight mt-0.5">
+            <div className="text-base sm:text-lg font-extrabold tracking-tight mt-0.5 font-[family-name:var(--font-display)]">
               {formatTotalTime(totalElapsedSeconds)}
             </div>
           </div>
@@ -116,32 +116,28 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
           {/* Distance */}
           <div
             id="finish-summary-dist-tile"
-            className={`p-3 rounded-2xl border text-center ${
-              isDayMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/80 border-slate-700/80'
-            }`}
+            className="p-3 rounded-[var(--radius-md)] border text-center bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <Route className="w-4 h-4 mx-auto mb-1 text-emerald-400" />
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <Route className="w-4 h-4 mx-auto mb-1 text-[var(--accent-2)]" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
               Distance
             </div>
-            <div className="text-base sm:text-lg font-black tracking-tight mt-0.5">
-              {dist.val} <span className="text-xs font-normal text-slate-400">{dist.unit}</span>
+            <div className="text-base sm:text-lg font-extrabold tracking-tight mt-0.5 font-[family-name:var(--font-display)]">
+              {dist.val} <span className="text-xs font-normal text-[var(--text-secondary)]">{dist.unit}</span>
             </div>
           </div>
 
           {/* Gain */}
           <div
             id="finish-summary-gain-tile"
-            className={`p-3 rounded-2xl border text-center ${
-              isDayMode ? 'bg-slate-50 border-slate-200' : 'bg-slate-800/80 border-slate-700/80'
-            }`}
+            className="p-3 rounded-[var(--radius-md)] border text-center bg-[var(--surface-2)] border-[var(--border-color)]"
           >
-            <TrendingUp className="w-4 h-4 mx-auto mb-1 text-amber-400" />
-            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <TrendingUp className="w-4 h-4 mx-auto mb-1 text-[var(--accent)]" />
+            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
               Gain
             </div>
-            <div className="text-base sm:text-lg font-black tracking-tight mt-0.5">
-              +{gain.val} <span className="text-xs font-normal text-slate-400">{gain.unit}</span>
+            <div className="text-base sm:text-lg font-extrabold tracking-tight mt-0.5 font-[family-name:var(--font-display)]">
+              +{gain.val} <span className="text-xs font-normal text-[var(--text-secondary)]">{gain.unit}</span>
             </div>
           </div>
         </div>
@@ -153,13 +149,10 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
             <button
               id="save-track-gpx-btn"
               onClick={handleDownloadTrackGPX}
-              className={`w-full py-3 px-4 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98] ${
-                isDayMode
-                  ? 'bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-950'
-                  : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300'
-              }`}
+              className="w-full py-3 px-4 rounded-[var(--radius-md)] border font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98] hover:opacity-90"
+              style={{ background: 'color-mix(in srgb, var(--accent) 15%, transparent)', borderColor: 'var(--accent)', color: 'var(--accent)' }}
             >
-              <Download className="w-4 h-4 text-amber-500 shrink-0" />
+              <Download className="w-4 h-4 shrink-0" />
               Save my track as GPX
             </button>
           )}
@@ -167,7 +160,8 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
           <button
             id="finish-summary-done-btn"
             onClick={onBackToTrails}
-            className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/40 transition active:scale-[0.98]"
+            className="w-full py-3.5 px-4 rounded-[var(--radius-md)] text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition active:scale-[0.98] hover:opacity-90"
+            style={{ background: 'var(--accent-2)' }}
           >
             <ChevronLeft className="w-4 h-4" />
             Back to Saved Trails
@@ -177,13 +171,9 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
             <button
               id="finish-summary-reverse-btn"
               onClick={onReverseTrail}
-              className={`w-full py-3 px-4 rounded-xl border font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.98] ${
-                isDayMode
-                  ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                  : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200'
-              }`}
+              className="w-full py-3 px-4 rounded-[var(--radius-md)] border font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition active:scale-[0.98] bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text)] hover:opacity-90"
             >
-              <Repeat className="w-4 h-4 text-indigo-400" />
+              <Repeat className="w-4 h-4 text-[var(--info)]" />
               Reverse Direction & Return
             </button>
           )}
@@ -191,7 +181,7 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
           <button
             id="finish-summary-review-map-btn"
             onClick={onClose}
-            className="w-full py-2 text-xs font-bold text-slate-400 hover:text-slate-200 transition"
+            className="w-full py-2 text-xs font-bold text-[var(--text-secondary)] hover:opacity-70 transition"
           >
             Review Trail on Map
           </button>

@@ -113,23 +113,20 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
   return (
     <div
       id="trail-list-screen"
-      className={`min-h-screen flex flex-col transition-colors select-none ${
-        isDayMode ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'
-      }`}
+      className="min-h-screen flex flex-col select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
     >
       {/* Header */}
       <header
-        className={`px-4 py-3.5 border-b sticky top-0 z-20 flex items-center justify-between ${
-          isDayMode ? 'bg-white border-slate-300 shadow-sm' : 'bg-slate-900 border-slate-800'
-        }`}
+        className="px-4 py-3.5 sticky top-0 z-20 flex items-center justify-between bg-[var(--surface)]"
+        style={{ borderBottom: 'var(--border-w-strong) solid var(--border-color)' }}
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white shadow-md">
+          <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--accent)] flex items-center justify-center text-white shadow-md">
             <Mountain className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tight leading-none">Trail Navigator</h1>
-            <p className="text-[11px] font-bold text-slate-400 mt-0.5">GPX Hiking & Turn Guidance</p>
+            <h1 className="text-xl font-extrabold tracking-tight leading-none font-[family-name:var(--font-display)]">Trail Navigator</h1>
+            <p className="text-[11px] font-bold text-[var(--text-secondary)] mt-0.5">GPX Hiking & Turn Guidance</p>
           </div>
         </div>
 
@@ -139,11 +136,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
             <button
               id="toggle-units-btn"
               onClick={() => onChangeUnits(units === 'imperial' ? 'metric' : 'imperial')}
-              className={`px-3 py-2.5 rounded-xl border font-black text-xs transition active:scale-95 ${
-                isDayMode
-                  ? 'bg-slate-100 border-slate-300 text-slate-700'
-                  : 'bg-slate-800 border-slate-700 text-slate-300'
-              }`}
+              className="px-3 py-2.5 rounded-[var(--radius-sm)] border font-extrabold text-xs transition active:scale-95 bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text)]"
               title="Switch between miles/feet and kilometers/meters"
               aria-label="Toggle units"
             >
@@ -153,15 +146,11 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
           <button
             id="toggle-theme-btn"
             onClick={onToggleTheme}
-            className={`p-2.5 rounded-xl border font-bold text-xs flex items-center gap-1.5 transition active:scale-95 ${
-              isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700'
-                : 'bg-slate-800 border-slate-700 text-slate-300'
-            }`}
-            title={isDayMode ? 'Switch to Dark Slate' : 'Switch to Sunlight Bright Day Mode'}
+            className="p-2.5 rounded-[var(--radius-sm)] border font-bold text-xs flex items-center gap-1.5 transition active:scale-95 bg-[var(--surface-2)] border-[var(--border-color)] text-[var(--text)]"
+            title={isDayMode ? 'Switch to Sport Bold night mode' : 'Switch to Sunlit Trail day mode'}
             aria-label="Toggle theme mode"
           >
-            {isDayMode ? <Moon className="w-4 h-4 text-indigo-600" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            {isDayMode ? <Moon className="w-4 h-4 text-[var(--accent-2)]" /> : <Sun className="w-4 h-4 text-[var(--accent)]" />}
           </button>
         </div>
       </header>
@@ -172,26 +161,23 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
         {resumableSession && (
           <div
             id="resume-hike-banner"
-            className={`p-4 rounded-2xl border-2 transition shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-              isDayMode
-                ? 'bg-emerald-50 border-emerald-500 text-slate-900'
-                : 'bg-emerald-950/40 border-emerald-500 text-slate-100'
-            }`}
+            className="p-4 rounded-[var(--radius-lg)] transition shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[var(--surface)]"
+            style={{ border: 'var(--border-w-strong) solid var(--accent-2)' }}
           >
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+              <div className="w-11 h-11 rounded-[var(--radius-md)] bg-[var(--accent-2)] text-white flex items-center justify-center shrink-0 shadow-md">
                 <Navigation className="w-5 h-5 animate-pulse" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--accent-2)]/20 text-[var(--accent-2)] text-[10px] font-extrabold uppercase tracking-wider">
                     Unfinished Hike
                   </span>
                 </div>
-                <h3 className="text-base font-black tracking-tight mt-0.5 line-clamp-1">
+                <h3 className="text-base font-extrabold tracking-tight mt-0.5 line-clamp-1 font-[family-name:var(--font-display)]">
                   {resumableSession.trail.name}
                 </h3>
-                <div className="flex items-center gap-3 text-xs font-bold text-slate-500 dark:text-slate-400 mt-1">
+                <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-secondary)] mt-1">
                   <span>
                     ⏱️ {Math.floor(resumableSession.elapsedSeconds / 60)}m {resumableSession.elapsedSeconds % 60}s elapsed
                   </span>
@@ -208,7 +194,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
               <button
                 id="resume-hike-btn"
                 onClick={onResumeHike}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition active:scale-95"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-[var(--radius-md)] bg-[var(--accent-2)] hover:opacity-90 text-white font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition active:scale-95"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 Resume Hike
@@ -216,11 +202,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
               <button
                 id="discard-hike-btn"
                 onClick={onDiscardSession}
-                className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition active:scale-95 ${
-                  isDayMode
-                    ? 'border-slate-300 text-slate-500 hover:bg-slate-100'
-                    : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-                }`}
+                className="px-3 py-2.5 rounded-[var(--radius-md)] border text-xs font-bold transition active:scale-95 border-[var(--border-color)] text-[var(--text-secondary)] hover:opacity-80"
                 title="Discard session"
                 aria-label="Discard session"
               >
@@ -234,11 +216,12 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
         {errorMessage && (
           <div
             id="gpx-error-banner"
-            className="p-3.5 rounded-xl bg-rose-500/15 border-2 border-rose-500 text-rose-600 dark:text-rose-400 flex items-start gap-3 text-sm font-semibold"
+            className="p-3.5 rounded-[var(--radius-md)] bg-[var(--danger)]/15 text-[var(--danger)] flex items-start gap-3 text-sm font-semibold"
+            style={{ border: 'var(--border-w-strong) solid var(--danger)' }}
           >
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <strong className="block font-black">Upload Failed</strong>
+              <strong className="block font-extrabold">Upload Failed</strong>
               {errorMessage}
             </div>
           </div>
@@ -251,13 +234,12 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative p-6 rounded-2xl border-3 border-dashed cursor-pointer text-center transition active:scale-[0.99] flex flex-col items-center justify-center ${
-            isDragging
-              ? 'border-emerald-500 bg-emerald-500/10'
-              : isDayMode
-              ? 'border-slate-300 bg-white hover:border-emerald-500 shadow-sm'
-              : 'border-slate-700 bg-slate-900 hover:border-emerald-500'
-          }`}
+          className="relative p-6 rounded-[var(--radius-lg)] border-dashed cursor-pointer text-center transition active:scale-[0.99] flex flex-col items-center justify-center bg-[var(--surface)] hover:opacity-90"
+          style={{
+            borderWidth: 'var(--border-w-strong)',
+            borderStyle: 'dashed',
+            borderColor: isDragging ? 'var(--accent)' : 'var(--border-color)',
+          }}
         >
           <input
             id="gpx-file-input"
@@ -268,19 +250,19 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
             className="hidden"
           />
 
-          <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-lg mb-3">
+          <div className="w-14 h-14 rounded-[var(--radius-lg)] bg-[var(--accent)] text-white flex items-center justify-center shadow-lg mb-3">
             <Upload className="w-7 h-7 stroke-[2.5]" />
           </div>
 
-          <h2 className="text-xl font-black tracking-tight">Load a GPX Trail</h2>
-          <p className="mt-1 text-xs sm:text-sm font-medium text-slate-400 max-w-xs">
-            Tap to select or drag & drop any <strong className="text-emerald-500">.gpx</strong> hiking file
+          <h2 className="text-xl font-extrabold tracking-tight font-[family-name:var(--font-display)]">Load a GPX Trail</h2>
+          <p className="mt-1 text-xs sm:text-sm font-medium text-[var(--text-secondary)] max-w-xs">
+            Tap to select or drag & drop any <strong className="text-[var(--accent)]">.gpx</strong> hiking file
           </p>
 
           <button
             id="browse-gpx-btn"
             type="button"
-            className="mt-4 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider shadow-md transition"
+            className="mt-4 px-5 py-2.5 rounded-[var(--radius-md)] bg-[var(--accent)] hover:opacity-90 text-white font-extrabold text-sm uppercase tracking-wider shadow-md transition"
           >
             Choose File
           </button>
@@ -289,7 +271,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
         {/* Saved Trails Section */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5">
               <Layers className="w-4 h-4" />
               Saved Trails ({savedTrails.length})
             </h3>
@@ -297,13 +279,11 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
 
           {savedTrails.length === 0 ? (
             <div
-              className={`p-6 rounded-2xl border text-center ${
-                isDayMode ? 'bg-white border-slate-200' : 'bg-slate-900/60 border-slate-800'
-              }`}
+              className="p-6 rounded-[var(--radius-lg)] border text-center bg-[var(--surface)] border-[var(--border-color)]"
             >
-              <MapPin className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+              <MapPin className="w-8 h-8 mx-auto text-[var(--text-secondary)] mb-2" />
               <p className="font-bold text-sm">No saved trails yet</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
                 Upload a GPX file above or select one of the built-in demo trails below.
               </p>
             </div>
@@ -313,18 +293,15 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                 <div
                   key={trail.id}
                   id={`saved-trail-card-${trail.id}`}
-                  className={`p-4 rounded-2xl border-2 transition shadow-sm flex flex-col justify-between gap-3 ${
-                    isDayMode
-                      ? 'bg-white border-slate-200 hover:border-emerald-500'
-                      : 'bg-slate-900 border-slate-800 hover:border-emerald-500'
-                  }`}
+                  className="p-4 rounded-[var(--radius-lg)] transition shadow-sm flex flex-col justify-between gap-3 bg-[var(--surface)] hover:border-[var(--accent)]"
+                  style={{ border: 'var(--border-w) solid var(--border-color)' }}
                 >
                   <div>
-                    <h4 className="text-lg font-black tracking-tight leading-tight line-clamp-1">
+                    <h4 className="text-lg font-extrabold tracking-tight leading-tight line-clamp-1 font-[family-name:var(--font-display)]">
                       {trail.name}
                     </h4>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-slate-400">
-                      <span className="text-emerald-500 font-extrabold">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-bold text-[var(--text-secondary)]">
+                      <span className="text-[var(--accent)] font-extrabold">
                         {formatDist(trail.totalDistance)}
                       </span>
                       {trail.elevationGain !== undefined && (
@@ -334,18 +311,21 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                         <span>-{formatElevation(trail.elevationLoss, units)} loss</span>
                       )}
                       {trail.waypoints && trail.waypoints.length > 0 && (
-                        <span className="text-indigo-400 font-bold">{trail.waypoints.length} waypoints</span>
+                        <span className="text-[var(--info)] font-bold">{trail.waypoints.length} waypoints</span>
                       )}
                       <span>{trail.points.length} track points</span>
                       <span>{trail.turnCues.length} turn cues</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1 border-t border-slate-800/20 dark:border-slate-800">
+                  <div
+                    className="flex items-center gap-2 pt-1"
+                    style={{ borderTop: 'var(--border-w) solid var(--border-color)' }}
+                  >
                     <button
                       id={`start-nav-btn-${trail.id}`}
                       onClick={() => onSelectTrail(trail)}
-                      className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
+                      className="flex-1 py-3 px-4 rounded-[var(--radius-md)] bg-[var(--accent)] hover:opacity-90 active:scale-98 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
                     >
                       <Navigation className="w-4 h-4" />
                       Start Navigation
@@ -354,11 +334,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                       <button
                         id={`reverse-trail-btn-${trail.id}`}
                         onClick={() => onReverseTrail(trail)}
-                        className={`p-3 rounded-xl border hover:bg-indigo-500/10 hover:border-indigo-500 hover:text-indigo-400 active:scale-95 transition ${
-                          isDayMode
-                            ? 'border-slate-200 text-slate-500'
-                            : 'border-slate-800 text-slate-400'
-                        }`}
+                        className="p-3 rounded-[var(--radius-md)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--info)] active:scale-95 transition"
                         title="Reverse direction"
                         aria-label="Reverse trail direction"
                       >
@@ -368,11 +344,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                     <button
                       id={`delete-trail-btn-${trail.id}`}
                       onClick={() => onDeleteTrail(trail.id)}
-                      className={`p-3 rounded-xl border hover:bg-rose-500/10 hover:border-rose-500 hover:text-rose-500 active:scale-95 transition ${
-                        isDayMode
-                          ? 'border-slate-200 text-slate-400'
-                          : 'border-slate-800 text-slate-400'
-                      }`}
+                      className="p-3 rounded-[var(--radius-md)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--danger)] active:scale-95 transition"
                       title="Delete trail"
                       aria-label="Delete saved trail"
                     >
@@ -387,8 +359,8 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
 
         {/* Demo / Sample Trails */}
         <div className="pt-2">
-          <h3 className="text-sm font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
-            <Sparkles className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center gap-1.5 mb-2">
+            <Sparkles className="w-4 h-4 text-[var(--accent)]" />
             Quick Demo Trails (No File Needed)
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -397,17 +369,13 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                 key={sample.id}
                 id={`load-sample-${sample.id}`}
                 onClick={() => handleLoadSample(sample)}
-                className={`p-3 rounded-xl border text-left transition active:scale-98 ${
-                  isDayMode
-                    ? 'bg-white border-slate-200 hover:border-emerald-500 shadow-sm'
-                    : 'bg-slate-900 border-slate-800 hover:border-emerald-500'
-                }`}
+                className="p-3 rounded-[var(--radius-md)] border text-left transition active:scale-98 bg-[var(--surface)] border-[var(--border-color)] hover:border-[var(--accent)]"
               >
                 <div className="font-extrabold text-sm line-clamp-1">{sample.name}</div>
-                <div className="text-xs font-bold text-emerald-500 mt-0.5">
+                <div className="text-xs font-bold text-[var(--accent)] mt-0.5">
                   {formatDist(sample.totalDistance)} · +{formatElevation(sample.elevationGain ?? 0, units)}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                <div className="text-[11px] text-[var(--text-secondary)] mt-1 flex items-center gap-1">
                   <span>{sample.turnCues.length} turns</span> · <span>Tap to load & test</span>
                 </div>
               </button>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="night">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -9,7 +9,7 @@
     <meta property="og:description" content="Mobile-first sunlight-readable hiking trail navigation PWA from GPX files with live tracking, compass guidance, turn cues, and off-trail alerts." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#14161C" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -17,8 +17,11 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Public+Sans:wght@400;600;700&family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap" />
   </head>
-  <body class="bg-slate-900 text-slate-100 antialiased select-none overscroll-none">
+  <body class="bg-[var(--bg,#14161C)] text-[var(--text,#F4F5F7)] antialiased select-none overscroll-none">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
