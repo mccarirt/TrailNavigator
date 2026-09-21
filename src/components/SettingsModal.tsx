@@ -47,22 +47,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 select-none">
       <div
         id="settings-modal-dialog"
-        className={`w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border transition-colors ${
-          isDayMode
-            ? 'bg-white border-slate-300 text-slate-900'
-            : 'bg-slate-900 border-slate-800 text-white'
-        }`}
+        className="w-full max-w-md rounded-t-[var(--radius-lg)] sm:rounded-[var(--radius-lg)] p-6 shadow-2xl bg-[var(--surface)] text-[var(--text)]"
+        style={{ border: 'var(--border-w-strong) solid var(--border-color)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-700/50">
+        <div className="flex items-center justify-between pb-4" style={{ borderBottom: '1px solid var(--border-color)' }}>
           <div className="flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-xl font-black tracking-tight">Navigation Settings</h2>
+            <Sliders className="w-5 h-5 text-[var(--accent-2)]" />
+            <h2 className="text-xl font-extrabold tracking-tight font-[family-name:var(--font-display)]">Navigation Settings</h2>
           </div>
           <button
             id="close-settings-btn"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:opacity-70 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -73,8 +70,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Units */}
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Ruler className="w-4 h-4 text-emerald-500" />
+              <label className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                <Ruler className="w-4 h-4 text-[var(--accent-2)]" />
                 Units
               </label>
             </div>
@@ -87,13 +84,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   key={value}
                   id={`units-${value}-btn`}
                   onClick={() => onUpdateSettings({ ...settings, units: value })}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black transition border ${
+                  className="flex-1 py-2 rounded-[var(--radius-sm)] text-xs font-extrabold transition border"
+                  style={
                     units === value
-                      ? 'bg-emerald-600 text-white border-emerald-400'
-                      : isDayMode
-                      ? 'bg-slate-100 border-slate-300 text-slate-700'
-                      : 'bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
+                      ? { background: 'var(--accent-2)', color: '#fff', borderColor: 'var(--accent-2)' }
+                      : { background: 'var(--surface-2)', color: 'var(--text)', borderColor: 'var(--border-color)' }
+                  }
                 >
                   {label}
                 </button>
@@ -104,18 +100,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Off-Trail Threshold Slider */}
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-black uppercase tracking-wider">
+              <label className="text-sm font-extrabold uppercase tracking-wider">
                 Off-Trail Alert Distance
               </label>
-              <span className="text-lg font-black text-emerald-500">
+              <span className="text-lg font-extrabold text-[var(--accent-2)]">
                 {formatShortDistance(settings.offTrailThreshold, units)}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
               Triggers warning banner, beep, and vibration if further than this for 3 fixes in a row.
             </p>
             <div className="mt-3 flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400">{thresholdSlider.minLabel}</span>
+              <span className="text-xs font-bold text-[var(--text-secondary)]">{thresholdSlider.minLabel}</span>
               <input
                 id="off-trail-threshold-slider"
                 type="range"
@@ -132,24 +128,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     offTrailClearThreshold: Math.max(10, Math.round(meters * 0.65)),
                   });
                 }}
-                className="w-full accent-emerald-500 h-2 bg-slate-700 rounded-lg cursor-pointer"
+                className="w-full accent-[var(--accent-2)] h-2 rounded-lg cursor-pointer"
+                style={{ background: 'var(--border-color)' }}
               />
-              <span className="text-xs font-bold text-slate-400">{thresholdSlider.maxLabel}</span>
+              <span className="text-xs font-bold text-[var(--text-secondary)]">{thresholdSlider.maxLabel}</span>
             </div>
           </div>
 
           {/* Lookahead Distance for Arrow */}
           <div>
             <div className="flex items-center justify-between">
-              <label className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5">
-                <Compass className="w-4 h-4 text-sky-400" />
+              <label className="text-sm font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                <Compass className="w-4 h-4 text-[var(--info)]" />
                 Target Lookahead Distance
               </label>
-              <span className="text-base font-black text-sky-400">
+              <span className="text-base font-extrabold text-[var(--info)]">
                 {formatShortDistance(settings.lookAheadDistance, units)}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
               Distance ahead along trail that compass arrow aims toward.
             </p>
             <div className="mt-2.5 flex gap-2">
@@ -157,13 +154,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   key={dist}
                   onClick={() => onUpdateSettings({ ...settings, lookAheadDistance: dist })}
-                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase transition border ${
+                  className="flex-1 py-2 rounded-[var(--radius-sm)] text-xs font-extrabold uppercase transition border"
+                  style={
                     settings.lookAheadDistance === dist
-                      ? 'bg-sky-600 text-white border-sky-400'
-                      : isDayMode
-                      ? 'bg-slate-100 border-slate-300 text-slate-700'
-                      : 'bg-slate-800 border-slate-700 text-slate-300'
-                  }`}
+                      ? { background: 'var(--info)', color: '#fff', borderColor: 'var(--info)' }
+                      : { background: 'var(--surface-2)', color: 'var(--text)', borderColor: 'var(--border-color)' }
+                  }
                 >
                   {formatShortDistance(dist, units)}
                 </button>
@@ -172,13 +168,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Sound & Vibration Toggles */}
-          <div className="space-y-3 pt-2 border-t border-slate-700/50">
+          <div className="space-y-3 pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-emerald-500" />
+                <Volume2 className="w-4 h-4 text-[var(--accent-2)]" />
                 <div>
                   <div className="text-sm font-bold">Audio Alerts & Chimes</div>
-                  <div className="text-xs text-slate-400">Beep on off-trail, chime on turn cues</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Beep on off-trail, chime on turn cues</div>
                 </div>
               </div>
               <input
@@ -186,16 +182,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="checkbox"
                 checked={settings.beepEnabled}
                 onChange={e => onUpdateSettings({ ...settings, beepEnabled: e.target.checked })}
-                className="w-6 h-6 accent-emerald-500 rounded cursor-pointer"
+                className="w-6 h-6 accent-[var(--accent-2)] rounded cursor-pointer"
               />
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Vibrate className="w-4 h-4 text-emerald-500" />
+                <Vibrate className="w-4 h-4 text-[var(--accent-2)]" />
                 <div>
                   <div className="text-sm font-bold">Device Vibration</div>
-                  <div className="text-xs text-slate-400">Haptic vibration for turns & warnings</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Haptic vibration for turns & warnings</div>
                 </div>
               </div>
               <input
@@ -203,16 +199,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="checkbox"
                 checked={settings.vibrateEnabled}
                 onChange={e => onUpdateSettings({ ...settings, vibrateEnabled: e.target.checked })}
-                className="w-6 h-6 accent-emerald-500 rounded cursor-pointer"
+                className="w-6 h-6 accent-[var(--accent-2)] rounded cursor-pointer"
               />
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sun className="w-4 h-4 text-amber-400" />
+                <Sun className="w-4 h-4 text-[var(--accent)]" />
                 <div>
-                  <div className="text-sm font-bold">Sunlight High-Contrast Theme</div>
-                  <div className="text-xs text-slate-400">Bright Daylight mode vs Dark Slate</div>
+                  <div className="text-sm font-bold">Theme</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Sunlit Trail (day) vs Sport Bold (night)</div>
                 </div>
               </div>
               <button
@@ -223,13 +219,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     highContrastMode: isDayMode ? 'dark-slate' : 'sunlight-bright',
                   })
                 }
-                className={`px-3 py-1.5 rounded-xl font-black text-xs uppercase border transition ${
-                  isDayMode
-                    ? 'bg-amber-500 text-black border-amber-400'
-                    : 'bg-slate-800 text-slate-200 border-slate-700'
-                }`}
+                className="px-3 py-1.5 rounded-[var(--radius-sm)] font-extrabold text-xs uppercase border transition"
+                style={{ background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }}
               >
-                {isDayMode ? 'Day Mode' : 'Dark Slate'}
+                {isDayMode ? 'Sunlit Trail' : 'Sport Bold'}
               </button>
             </div>
           </div>
@@ -239,7 +232,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <button
           id="save-settings-btn"
           onClick={onClose}
-          className="mt-2 w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 font-black text-sm uppercase tracking-wider text-white shadow-lg transition"
+          className="mt-2 w-full py-3.5 rounded-[var(--radius-lg)] active:scale-98 font-extrabold text-sm uppercase tracking-wider text-white shadow-lg transition hover:opacity-90"
+          style={{ background: 'var(--accent-2)' }}
         >
           Save & Close
         </button>

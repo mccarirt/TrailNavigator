@@ -69,6 +69,10 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   const waypointsGroupRef = useRef<L.LayerGroup | null>(null);
 
   const isDayMode = highContrastMode === 'sunlight-bright';
+  // Canvas-rendered layers (the live "My Route" breadcrumb) can't resolve CSS custom
+  // properties, since canvas 2D color parsing doesn't go through the CSS cascade — so that
+  // one color needs a literal hex per theme, matching --accent in src/index.css.
+  const myRouteColor = isDayMode ? '#D9622B' : '#FFB020';
 
   // Initialize Map
   useEffect(() => {
@@ -100,6 +104,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
 
     // Double-stroke Trail line for maximum outdoor sunlight readability.
     // Multi-segment array avoids bridging gaps between distinct trkseg/trk.
+    // Default (SVG) renderer, so these are real DOM <path> elements and can use CSS variables.
     const polylineSegments =
       trail.segments && trail.segments.length > 0
         ? trail.segments.map(seg => seg.map(p => [p.lat, p.lon] as [number, number]))
@@ -107,7 +112,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
 
     // Outer dark outline
     const outline = L.polyline(polylineSegments, {
-      color: isDayMode ? '#0f172a' : '#020617',
+      color: 'var(--border-color)',
       weight: 10,
       opacity: 0.9,
       lineCap: 'round',
@@ -115,9 +120,9 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     }).addTo(map);
     trailPolylineOutlineRef.current = outline;
 
-    // Inner bright vivid line (Emerald green)
+    // Inner bright vivid line
     const core = L.polyline(polylineSegments, {
-      color: '#10b981', // vivid emerald
+      color: 'var(--accent-2)',
       weight: 6,
       opacity: 1,
       lineCap: 'round',
@@ -147,13 +152,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     myRoutePolylinesRef.current = [];
     const currentCrumbs = breadcrumbsRef.current;
     if (currentCrumbs && currentCrumbs.length > 0) {
-      const routeColor = isDayMode ? '#1e40af' : '#f97316';
       currentCrumbs.forEach(seg => {
         if (seg.length > 0) {
           const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
           const polyline = L.polyline(latLngs, {
             renderer: routeCanvas,
-            color: routeColor,
+            color: myRouteColor,
             weight: 5,
             opacity: 0.95,
             lineCap: 'round',
@@ -171,24 +175,24 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       lastRenderedPtCountRef.current = 0;
     }
 
-    // Start Marker (Green pin)
+    // Start Marker
     if (trail.points.length > 0) {
       const start = trail.points[0];
       const startIcon = L.divIcon({
         className: 'custom-start-marker',
-        html: `<div style="background:#16a34a;color:white;width:24px;height:24px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S</div>`,
+        html: `<div style="background:var(--accent-2);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S</div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
       L.marker([start.lat, start.lon], { icon: startIcon }).addTo(map);
     }
 
-    // End Marker (Red pin)
+    // End Marker
     if (trail.points.length > 1) {
       const end = trail.points[trail.points.length - 1];
       const endIcon = L.divIcon({
         className: 'custom-end-marker',
-        html: `<div style="background:#dc2626;color:white;width:24px;height:24px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">E</div>`,
+        html: `<div style="background:var(--danger);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">E</div>`,
         iconSize: [24, 24],
         iconAnchor: [12, 12],
       });
@@ -205,19 +209,19 @@ export const TrailMap: React.FC<TrailMapProps> = ({
 
     // Guidance/Projection line
     const projLine = L.polyline([], {
-      color: '#f59e0b', // amber dashed line
+      color: 'var(--info)',
       weight: 3,
       dashArray: '6, 6',
       opacity: 0.9,
     }).addTo(map);
     projectionLineRef.current = projLine;
 
-    // Target lookahead marker (bright yellow ring)
+    // Target lookahead marker
     const targetMarker = L.circleMarker([startPoint.lat, startPoint.lon], {
       radius: 6,
-      fillColor: '#fbbf24',
+      fillColor: 'var(--accent)',
       fillOpacity: 0.9,
-      color: '#000000',
+      color: 'var(--border-color)',
       weight: 2,
     }).addTo(map);
     targetMarkerRef.current = targetMarker;
@@ -225,21 +229,21 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     // User accuracy circle
     const accCircle = L.circle([startPoint.lat, startPoint.lon], {
       radius: 10,
-      color: '#3b82f6',
-      fillColor: '#3b82f6',
+      color: 'var(--info)',
+      fillColor: 'var(--info)',
       fillOpacity: userPosition ? 0.15 : 0,
       opacity: userPosition ? 1 : 0,
       weight: 1,
     }).addTo(map);
     accuracyCircleRef.current = accCircle;
 
-    // User location marker (Blue dot with radar ring and orientation pointer)
+    // User location marker (dot with radar ring and orientation pointer)
     const userDivIcon = L.divIcon({
       className: 'user-live-marker',
       html: `
         <div id="user-live-dot-wrapper" style="position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;width:32px;height:32px;border-radius:50%;background:rgba(59,130,246,0.35);animation:pulse 2s infinite;"></div>
-          <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:#2563eb;border:3px solid #ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>
+          <div style="position:absolute;width:32px;height:32px;border-radius:50%;background:var(--info);opacity:0.35;animation:pulse 2s infinite;"></div>
+          <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:var(--info);border:3px solid var(--surface);box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>
         </div>
       `,
       iconSize: [32, 32],
@@ -292,13 +296,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       lastRenderedSegCountRef.current = 0;
       lastRenderedPtCountRef.current = 0;
     };
-  }, [trail.id, isDayMode]);
+  }, [trail.id]);
 
   // Incremental Live Route polyline updates
   useEffect(() => {
     if (!mapInstanceRef.current || !myRouteGroupRef.current || !myRouteCanvasRef.current) return;
     const currentCrumbs = breadcrumbs || [];
-    const routeColor = isDayMode ? '#1e40af' : '#f97316';
 
     // If empty, clear layers
     if (currentCrumbs.length === 0) {
@@ -316,7 +319,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
           const polyline = L.polyline(latLngs, {
             renderer: myRouteCanvasRef.current!,
-            color: routeColor,
+            color: myRouteColor,
             weight: 5,
             opacity: 0.95,
             lineCap: 'round',
@@ -364,7 +367,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         const latLngs = newSeg.map(pt => [pt.lat, pt.lon] as [number, number]);
         const polyline = L.polyline(latLngs, {
           renderer: myRouteCanvasRef.current!,
-          color: routeColor,
+          color: myRouteColor,
           weight: 5,
           opacity: 0.95,
           lineCap: 'round',
@@ -388,7 +391,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
           const polyline = L.polyline(latLngs, {
             renderer: myRouteCanvasRef.current!,
-            color: routeColor,
+            color: myRouteColor,
             weight: 5,
             opacity: 0.95,
             lineCap: 'round',
@@ -402,7 +405,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       const lastSeg = currentCrumbs[currentCrumbs.length - 1];
       lastRenderedPtCountRef.current = lastSeg ? lastSeg.length : 0;
     }
-  }, [breadcrumbs, isDayMode]);
+  }, [breadcrumbs, myRouteColor]);
 
   // Toggle My Route visibility
   useEffect(() => {
@@ -427,7 +430,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       const turnIcon = L.divIcon({
         className: 'turn-marker-icon',
         html: `
-          <div style="background:#f59e0b;color:#000000;padding:2px 4px;border-radius:4px;border:1.5px solid white;font-weight:900;font-size:10px;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.4);">
+          <div style="background:var(--accent);color:white;padding:2px 4px;border-radius:4px;border:1.5px solid var(--surface);font-weight:900;font-size:10px;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.4);">
             ${cue.turnType.includes('left') ? '↰' : cue.turnType.includes('right') ? '↱' : '⮑'} ${cue.description}
           </div>
         `,
@@ -452,7 +455,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         html: `
           <div style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
             <div style="
-              background:#6366f1;
+              background:var(--info);
               color:white;
               width:24px;
               height:24px;
@@ -461,7 +464,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
               display:flex;
               align-items:center;
               justify-content:center;
-              border:2px solid white;
+              border:2px solid var(--surface);
               box-shadow:0 3px 6px rgba(0,0,0,0.5);
             ">
               <div style="transform:rotate(45deg);font-size:11px;line-height:1;">
@@ -480,12 +483,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         zIndexOffset: 600,
       }).addTo(waypointsGroupRef.current!);
 
-      const eleText = wpt.ele !== undefined ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Elevation: ${formatElevation(wpt.ele, units)}</div>` : '';
-      const descText = wpt.desc ? `<div style="font-size:11px;color:#334155;margin-top:4px;line-height:1.3;">${wpt.desc}</div>` : '';
+      const eleText = wpt.ele !== undefined ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">Elevation: ${formatElevation(wpt.ele, units)}</div>` : '';
+      const descText = wpt.desc ? `<div style="font-size:11px;color:var(--text);margin-top:4px;line-height:1.3;">${wpt.desc}</div>` : '';
 
       marker.bindPopup(`
-        <div style="font-family:system-ui,-apple-system,sans-serif;padding:3px 4px;min-width:120px;">
-          <div style="font-weight:800;font-size:12px;color:#0f172a;">${wpt.name || `Waypoint ${index + 1}`}</div>
+        <div style="font-family:var(--font-body);padding:3px 4px;min-width:120px;">
+          <div style="font-weight:800;font-size:12px;color:var(--text);">${wpt.name || `Waypoint ${index + 1}`}</div>
           ${eleText}
           ${descText}
         </div>
@@ -537,12 +540,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         <div id="user-live-dot-wrapper" style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
           <!-- Orientation Cone -->
           <div style="position:absolute;width:34px;height:34px;transform:rotate(${headingDeg}deg);display:flex;justify-content:center;pointer-events:none;">
-            <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #3b82f6;margin-top:-6px;"></div>
+            <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--info);margin-top:-6px;"></div>
           </div>
           <!-- Pulsing Radar Ring -->
-          <div style="position:absolute;width:30px;height:30px;border-radius:50%;background:rgba(59,130,246,0.3);animation:pulse 2s infinite;"></div>
+          <div style="position:absolute;width:30px;height:30px;border-radius:50%;background:var(--info);opacity:0.3;animation:pulse 2s infinite;"></div>
           <!-- Core Dot -->
-          <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:#1d4ed8;border:3px solid #ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.6);"></div>
+          <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:var(--info);border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,0.6);"></div>
         </div>
       `;
       userMarkerRef.current.setIcon(
@@ -612,13 +615,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         <button
           id="follow-me-toggle-btn"
           onClick={onToggleFollowMe}
-          className={`w-8 h-8 rounded-lg font-bold shadow-md border transition active:scale-90 flex items-center justify-center ${
+          className="w-8 h-8 rounded-[var(--radius-sm)] font-bold shadow-md border transition active:scale-90 flex items-center justify-center"
+          style={
             followMe
-              ? 'bg-blue-600 text-white border-blue-500 shadow-blue-900/30'
-              : isDayMode
-              ? 'bg-white/95 text-slate-700 border-slate-300 hover:bg-slate-50'
-              : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
-          }`}
+              ? { background: 'var(--info)', color: '#fff', borderColor: 'var(--info)' }
+              : { background: 'var(--surface)', color: 'var(--text)', borderColor: 'var(--border-color)' }
+          }
           title={followMe ? 'Following your location (tap to pause)' : 'Follow my location'}
           aria-label={followMe ? 'Disable follow me' : 'Enable follow me'}
         >
@@ -629,11 +631,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         <button
           id="fit-trail-bounds-btn"
           onClick={handleFitTrail}
-          className={`w-8 h-8 rounded-lg shadow-md border transition active:scale-90 flex items-center justify-center ${
-            isDayMode
-              ? 'bg-white/95 text-slate-700 border-slate-300 hover:bg-slate-50'
-              : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:bg-slate-800'
-          }`}
+          className="w-8 h-8 rounded-[var(--radius-sm)] shadow-md border transition active:scale-90 flex items-center justify-center bg-[var(--surface)] text-[var(--text)] border-[var(--border-color)] hover:opacity-90"
           title="Fit whole trail in view"
           aria-label="Fit whole trail to view"
         >
@@ -644,15 +642,12 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         <button
           id="toggle-my-route-btn"
           onClick={() => setShowMyRoute(prev => !prev)}
-          className={`w-8 h-8 rounded-lg shadow-md border transition active:scale-90 flex items-center justify-center ${
+          className="w-8 h-8 rounded-[var(--radius-sm)] shadow-md border transition active:scale-90 flex items-center justify-center"
+          style={
             showMyRoute
-              ? isDayMode
-                ? 'bg-blue-600 text-white border-blue-500 shadow-blue-900/30'
-                : 'bg-orange-500 text-white border-orange-400 shadow-orange-950/40'
-              : isDayMode
-              ? 'bg-white/95 text-slate-400 border-slate-300 hover:bg-slate-50'
-              : 'bg-slate-900/90 text-slate-500 border-slate-700 hover:bg-slate-800'
-          }`}
+              ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }
+              : { background: 'var(--surface)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }
+          }
           title={showMyRoute ? 'Hide my route' : 'Show my route'}
           aria-label={showMyRoute ? 'Hide my route' : 'Show my route'}
         >
@@ -661,29 +656,26 @@ export const TrailMap: React.FC<TrailMapProps> = ({
 
         {/* Zoom Controls */}
         <div
-          className={`w-8 flex flex-col rounded-lg overflow-hidden shadow-md border divide-y ${
-            isDayMode
-              ? 'bg-white/95 border-slate-300 divide-slate-200'
-              : 'bg-slate-900/90 border-slate-700 divide-slate-800'
-          }`}
+          className="w-8 flex flex-col rounded-[var(--radius-sm)] overflow-hidden shadow-md border bg-[var(--surface)] border-[var(--border-color)]"
         >
           <button
             id="map-zoom-in-btn"
             onClick={handleZoomIn}
-            className="w-8 h-7.5 hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition flex items-center justify-center"
+            className="w-8 h-7.5 hover:opacity-70 active:scale-90 transition flex items-center justify-center"
+            style={{ borderBottom: '1px solid var(--border-color)' }}
             title="Zoom in"
             aria-label="Zoom in"
           >
-            <ZoomIn className={`w-3.5 h-3.5 ${isDayMode ? 'text-slate-800' : 'text-slate-200'}`} />
+            <ZoomIn className="w-3.5 h-3.5 text-[var(--text)]" />
           </button>
           <button
             id="map-zoom-out-btn"
             onClick={handleZoomOut}
-            className="w-8 h-7.5 hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition flex items-center justify-center"
+            className="w-8 h-7.5 hover:opacity-70 active:scale-90 transition flex items-center justify-center"
             title="Zoom out"
             aria-label="Zoom out"
           >
-            <ZoomOut className={`w-3.5 h-3.5 ${isDayMode ? 'text-slate-800' : 'text-slate-200'}`} />
+            <ZoomOut className="w-3.5 h-3.5 text-[var(--text)]" />
           </button>
         </div>
       </div>

@@ -9,8 +9,66 @@ html, body, #root {
   overflow: hidden;
 }
 
+/*
+ * Theme tokens for the two app themes:
+ *  - "day"   (Sunlit Trail): bright, thick-bordered, bold display type for outdoor sunlight readability
+ *  - "night" (Sport Bold): dark, sharp-cornered, geometric display type for low-light use
+ * Set via data-theme on the app root, driven by AppSettings.highContrastMode.
+ */
+:root[data-theme="day"] {
+  --bg: #FFFDF7;
+  --surface: #FFFFFF;
+  --surface-2: #F1EEE2;
+  --border-color: #14261B;
+  --border-w: 2px;
+  --border-w-strong: 3px;
+  --text: #14261B;
+  --text-secondary: #5B6A61;
+  --accent: #D9622B;
+  --accent-2: #1F5C3A;
+  --danger: #C23B22;
+  --info: #2E7D9A;
+  --grid-line: #DED8C4;
+  --track: #F1EEE2;
+  --remaining-line: #B9C4B4;
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  --shadow-btn: 3px 3px 0 var(--border-color);
+  --font-display: 'Archivo', sans-serif;
+  --font-body: 'Public Sans', sans-serif;
+}
+
+:root[data-theme="night"] {
+  --bg: #14161C;
+  --surface: #1D2029;
+  --surface-2: #10121A;
+  --border-color: #2B2F3A;
+  --border-w: 1px;
+  --border-w-strong: 1px;
+  --text: #F4F5F7;
+  --text-secondary: #8A8F9C;
+  --accent: #FFB020;
+  --accent-2: #33D6C0;
+  --danger: #FF5C5C;
+  --info: #33D6C0;
+  --grid-line: #212430;
+  --track: #2B2F3A;
+  --remaining-line: #3A3F4C;
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-btn: 0 4px 12px rgba(0,0,0,0.4);
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+}
+
+body {
+  font-family: var(--font-body, sans-serif);
+}
+
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background-color: #0f172a;
+  background-color: var(--surface-2, #0f172a);
 }

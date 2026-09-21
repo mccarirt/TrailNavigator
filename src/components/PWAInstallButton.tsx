@@ -15,7 +15,7 @@ export const PWAInstallButton: React.FC = () => {
       <button
         id="pwa-install-app-btn"
         onClick={install}
-        className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white uppercase tracking-wider shadow-md hover:bg-blue-500 active:scale-95 transition"
+        className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-xs font-extrabold text-white uppercase tracking-wider shadow-md hover:bg-blue-500 active:scale-95 transition"
       >
         <Download className="w-4 h-4" />
         Install App
@@ -39,7 +39,7 @@ export const PWAInstallButton: React.FC = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
             <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-700 p-5 shadow-2xl text-white">
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-black">Install Trail Navigator</h3>
+                <h3 className="text-base font-extrabold">Install Trail Navigator</h3>
                 <button
                   onClick={() => setShowIOSGuide(false)}
                   className="p-1 text-slate-400 hover:text-white"
@@ -53,7 +53,7 @@ export const PWAInstallButton: React.FC = () => {
               </p>
               <button
                 onClick={() => setShowIOSGuide(false)}
-                className="mt-5 w-full rounded-xl bg-emerald-600 py-3 text-sm font-black uppercase tracking-wider text-white"
+                className="mt-5 w-full rounded-xl bg-emerald-600 py-3 text-sm font-extrabold uppercase tracking-wider text-white"
               >
                 Got It
               </button>

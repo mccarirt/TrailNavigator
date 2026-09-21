@@ -113,6 +113,14 @@ export default function App() {
     return DEFAULT_SETTINGS;
   });
 
+  // Apply the active theme's design tokens (see src/index.css) to the document root
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      'data-theme',
+      settings.highContrastMode === 'sunlight-bright' ? 'day' : 'night'
+    );
+  }, [settings.highContrastMode]);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Navigation State
@@ -1504,10 +1512,10 @@ export default function App() {
       <div
         id="app-error-toast"
         role="alert"
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-[calc(100%-2rem)] p-3.5 rounded-xl bg-rose-600 text-white shadow-2xl border border-rose-700 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-[calc(100%-2rem)] p-3.5 rounded-[var(--radius-sm)] bg-[var(--danger)] text-white shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3"
       >
         <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm">
-          <AlertTriangle className="w-5 h-5 shrink-0 text-amber-200" />
+          <AlertTriangle className="w-5 h-5 shrink-0 text-white" />
           <span>{errorToast}</span>
         </div>
         <button
@@ -1558,16 +1566,13 @@ export default function App() {
   return (
     <div
       id="trail-navigation-screen"
-      className={`h-screen w-screen flex flex-col overflow-hidden transition-colors select-none ${
-        isDayMode ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-100'
-      }`}
+      className="h-screen w-screen flex flex-col overflow-hidden select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
     >
       {renderErrorToast()}
       {/* Top Header Bar */}
       <header
-        className={`px-3 py-2 border-b shrink-0 flex items-center justify-between gap-2 ${
-          isDayMode ? 'bg-white border-slate-300' : 'bg-slate-900 border-slate-800'
-        }`}
+        className="px-3 py-2 shrink-0 flex items-center justify-between gap-2 bg-[var(--surface)]"
+        style={{ borderBottom: 'var(--border-w-strong) solid var(--border-color)' }}
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <button
@@ -1577,18 +1582,14 @@ export default function App() {
               setIsSimulatingWalk(false);
               setCurrentScreen('list');
             }}
-            className={`p-2 rounded-xl flex items-center gap-1 font-black text-xs uppercase tracking-wider transition active:scale-95 ${
-              isDayMode
-                ? 'bg-slate-100 hover:bg-slate-200 text-slate-800'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-            }`}
+            className="p-2 rounded-[var(--radius-sm)] flex items-center gap-1 font-bold text-xs uppercase tracking-wider transition active:scale-95 bg-[var(--surface-2)] hover:opacity-80 text-[var(--text)]"
             aria-label="Back to saved trails"
           >
             <ChevronLeft className="w-4 h-4 -ml-1" />
             <span>Trails</span>
           </button>
 
-          <h1 className="text-sm sm:text-base font-black tracking-tight truncate max-w-[150px] sm:max-w-xs">
+          <h1 className="text-sm sm:text-base font-bold tracking-tight truncate max-w-[150px] sm:max-w-xs font-[family-name:var(--font-display)]">
             {activeTrail.name}
           </h1>
         </div>
@@ -1599,12 +1600,10 @@ export default function App() {
           <button
             id="toggle-stats-panel-btn"
             onClick={() => setIsStatsVisible(prev => !prev)}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-black uppercase flex items-center gap-1 transition active:scale-95 ${
+            className={`px-2.5 py-1.5 rounded-[var(--radius-sm)] border text-xs font-extrabold uppercase flex items-center gap-1 transition active:scale-95 ${
               isStatsVisible
-                ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                : isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm'
+                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
             }`}
             title={isStatsVisible ? 'Hide time and stats' : 'Show time and trip stats'}
             aria-label="Toggle stats and time"
@@ -1619,12 +1618,10 @@ export default function App() {
           <button
             id="toggle-compass-panel-btn"
             onClick={() => setIsCompassVisible(prev => !prev)}
-            className={`p-2 rounded-xl border transition active:scale-95 ${
+            className={`p-2 rounded-[var(--radius-sm)] border transition active:scale-95 ${
               isCompassVisible
-                ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm'
-                : isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[var(--accent-2)] text-white border-[var(--accent-2)] shadow-sm'
+                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
             }`}
             title={isCompassVisible ? 'Hide compass guidance' : 'Show compass guidance'}
             aria-label="Toggle compass guidance"
@@ -1646,12 +1643,10 @@ export default function App() {
                 setSimWalkingDirection(-1);
               }
             }}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-black uppercase flex items-center gap-1 transition active:scale-95 ${
+            className={`px-2.5 py-1.5 rounded-[var(--radius-sm)] border text-xs font-extrabold uppercase flex items-center gap-1 transition active:scale-95 ${
               isReverseMode
-                ? 'bg-amber-600 text-white border-amber-500 shadow-sm'
-                : isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[var(--info)] text-white border-[var(--info)] shadow-sm'
+                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
             }`}
             title={isReverseMode ? 'Continue to end of trail' : 'Head back to start of trail'}
             aria-label={isReverseMode ? 'Continue to end' : 'Head back to start'}
@@ -1671,12 +1666,10 @@ export default function App() {
                 setIsSimulatingWalk(true);
               }
             }}
-            className={`px-2.5 py-1.5 rounded-xl border text-xs font-black uppercase flex items-center gap-1 transition active:scale-95 ${
+            className={`px-2.5 py-1.5 rounded-[var(--radius-sm)] border text-xs font-extrabold uppercase flex items-center gap-1 transition active:scale-95 ${
               isSimulationMode
-                ? 'bg-amber-500 text-black border-amber-400'
-                : isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                ? 'bg-[var(--danger)] text-white border-[var(--danger)]'
+                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
             }`}
             title="Desk test simulation"
           >
@@ -1688,25 +1681,17 @@ export default function App() {
           <button
             id="nav-theme-toggle-btn"
             onClick={handleToggleTheme}
-            className={`p-2 rounded-xl border transition active:scale-95 ${
-              isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-            }`}
+            className="p-2 rounded-[var(--radius-sm)] border transition active:scale-95 bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80"
             aria-label="Toggle contrast theme"
           >
-            {isDayMode ? <Moon className="w-4 h-4 text-indigo-600" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            {isDayMode ? <Moon className="w-4 h-4 text-[var(--accent-2)]" /> : <Sun className="w-4 h-4 text-[var(--accent)]" />}
           </button>
 
           {/* Settings Modal Toggle */}
           <button
             id="open-settings-btn"
             onClick={() => setIsSettingsOpen(true)}
-            className={`p-2 rounded-xl border transition active:scale-95 ${
-              isDayMode
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-            }`}
+            className="p-2 rounded-[var(--radius-sm)] border transition active:scale-95 bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80"
             aria-label="Settings"
           >
             <SettingsIcon className="w-4 h-4" />
@@ -1719,41 +1704,38 @@ export default function App() {
         <div
           id="gps-status-banner"
           role="alert"
-          className={`px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md z-[460] shrink-0 transition-colors ${
-            gpsState === 'denied'
-              ? isDayMode
-                ? 'bg-rose-50 border-rose-200 text-rose-950'
-                : 'bg-rose-950/90 border-rose-800 text-rose-100'
-              : gpsState === 'unavailable' || gpsState === 'timeout'
-              ? isDayMode
-                ? 'bg-amber-50 border-amber-200 text-amber-950'
-                : 'bg-amber-950/90 border-amber-800 text-amber-100'
-              : isDayMode
-              ? 'bg-sky-50 border-sky-200 text-sky-950'
-              : 'bg-sky-950/90 border-sky-800 text-sky-100'
-          }`}
+          className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md z-[460] shrink-0 bg-[var(--surface)] text-[var(--text)]"
+          style={{
+            borderBottom: `var(--border-w-strong) solid ${
+              gpsState === 'denied'
+                ? 'var(--danger)'
+                : gpsState === 'unavailable' || gpsState === 'timeout'
+                ? 'var(--accent)'
+                : 'var(--info)'
+            }`,
+          }}
         >
           <div className="flex items-start gap-3">
             <div className="mt-0.5 shrink-0">
               {gpsState === 'acquiring' && (
                 <div className="relative flex items-center justify-center w-5 h-5">
-                  <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-sky-400 opacity-75"></span>
-                  <Radio className="w-5 h-5 text-sky-600 dark:text-sky-400 relative" />
+                  <span className="animate-ping absolute inline-flex h-4 w-4 rounded-full bg-[var(--info)] opacity-75"></span>
+                  <Radio className="w-5 h-5 text-[var(--info)] relative" />
                 </div>
               )}
               {gpsState === 'denied' && (
-                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                <AlertTriangle className="w-5 h-5 text-[var(--danger)]" />
               )}
               {gpsState === 'unavailable' && (
-                <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <AlertCircle className="w-5 h-5 text-[var(--accent)]" />
               )}
               {gpsState === 'timeout' && (
-                <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <Clock className="w-5 h-5 text-[var(--accent)]" />
               )}
             </div>
 
             <div className="text-xs space-y-0.5">
-              <div className="font-black uppercase tracking-wider text-[11px]">
+              <div className="font-extrabold uppercase tracking-wider text-[11px]">
                 {gpsState === 'acquiring' && 'Acquiring GPS Fix...'}
                 {gpsState === 'denied' && 'Location Permission Denied'}
                 {gpsState === 'unavailable' && 'GPS Hardware / Signal Unavailable'}
@@ -1779,11 +1761,8 @@ export default function App() {
                 setGpsState('acquiring');
                 setGpsRetryTrigger(prev => prev + 1);
               }}
-              className={`self-start sm:self-auto px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm ${
-                gpsState === 'denied'
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white'
-                  : 'bg-amber-600 hover:bg-amber-500 text-white'
-              }`}
+              className="self-start sm:self-auto px-3 py-1.5 rounded-[var(--radius-sm)] text-xs font-extrabold uppercase tracking-wider transition active:scale-95 flex items-center gap-1.5 shrink-0 shadow-sm text-white hover:opacity-90"
+              style={{ background: gpsState === 'denied' ? 'var(--danger)' : 'var(--accent)' }}
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Retry GPS</span>
@@ -1801,7 +1780,8 @@ export default function App() {
               initial={{ y: -40, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -40, opacity: 0 }}
-              className="absolute top-16 left-1/2 -translate-x-1/2 z-[460] px-4 py-2.5 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs sm:text-sm shadow-2xl border border-amber-400 flex items-center gap-2.5 max-w-[90vw]"
+              className="absolute top-16 left-1/2 -translate-x-1/2 z-[460] px-4 py-2.5 rounded-[var(--radius-md)] bg-[var(--info)] text-white font-extrabold text-xs sm:text-sm shadow-2xl flex items-center gap-2.5 max-w-[90vw]"
+              style={{ border: 'var(--border-w) solid var(--border-color)' }}
             >
               <RotateCcw className="w-4 h-4 shrink-0" />
               <span>{turnAroundNotice}</span>
@@ -1896,25 +1876,21 @@ export default function App() {
             <button
               id="quick-slide-stats-pill"
               onClick={() => setIsStatsVisible(true)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black tracking-tight shadow-lg border backdrop-blur-md transition active:scale-95 ${
-                isDayMode
-                  ? 'bg-white/95 text-slate-800 border-slate-300 hover:bg-white'
-                  : 'bg-slate-900/90 text-slate-100 border-slate-700 hover:bg-slate-900'
-              }`}
+              className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-extrabold tracking-tight shadow-lg border backdrop-blur-md transition active:scale-95 bg-[var(--surface)]/95 text-[var(--text)] border-[var(--border-color)] hover:opacity-90"
               title="Tap to slide stats and time into focus"
             >
-              <div className="flex items-center gap-1 text-sky-500 font-mono">
-                <span className="text-[10px] text-slate-400 font-sans font-bold">TIME</span>
+              <div className="flex items-center gap-1 text-[var(--info)] font-mono">
+                <span className="text-[10px] text-[var(--text-secondary)] font-sans font-bold">TIME</span>
                 <span>{formatTotalTime(elapsedSeconds)}</span>
               </div>
-              <span className="text-slate-300 dark:text-slate-700">|</span>
-              <div className="flex items-center gap-1 text-emerald-500 font-mono">
-                <span className="text-[10px] text-slate-400 font-sans font-bold">
+              <span className="text-[var(--border-color)]">|</span>
+              <div className="flex items-center gap-1 text-[var(--accent-2)] font-mono">
+                <span className="text-[10px] text-[var(--text-secondary)] font-sans font-bold">
                   {isReverseMode ? 'TO START' : 'LEFT'}
                 </span>
                 <span>{formatTimeRemaining(estimatedTimeRemainingSec, effectiveDistanceRemaining)}</span>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+              <ChevronDown className="w-3.5 h-3.5 text-[var(--text-secondary)] ml-0.5" />
             </button>
           </div>
         )}
@@ -1945,19 +1921,15 @@ export default function App() {
       {/* Big Start / Stop Navigation Button (Bottom) */}
       <div
         id="bottom-action-dock"
-        className={`p-3 border-t shrink-0 ${
-          isDayMode ? 'bg-white border-slate-300' : 'bg-slate-900 border-slate-800'
-        }`}
+        className="p-3 shrink-0 bg-[var(--surface)]"
+        style={{ borderTop: 'var(--border-w-strong) solid var(--border-color)' }}
       >
         <div className="max-w-xl mx-auto flex items-center gap-2">
           <button
             id="start-stop-navigation-btn"
             onClick={handleToggleNavigation}
-            className={`flex-1 h-14 rounded-2xl font-black text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition active:scale-[0.98] ${
-              isNavigating
-                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-900/50'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/50'
-            }`}
+            className="flex-1 h-14 rounded-[var(--radius-md)] font-extrabold text-base uppercase tracking-wider flex items-center justify-center gap-2 shadow-2xl transition active:scale-[0.98] text-white hover:opacity-90"
+            style={{ background: isNavigating ? 'var(--danger)' : 'var(--accent-2)' }}
           >
             {isNavigating ? (
               <>
@@ -1976,14 +1948,8 @@ export default function App() {
           <button
             id="quick-mute-toggle-btn"
             onClick={() => setSettings(s => ({ ...s, beepEnabled: !s.beepEnabled }))}
-            className={`h-14 w-14 rounded-2xl border flex items-center justify-center transition active:scale-95 ${
-              settings.beepEnabled
-                ? isDayMode
-                  ? 'bg-slate-100 text-emerald-600 border-slate-300'
-                  : 'bg-slate-800 text-emerald-400 border-slate-700'
-                : isDayMode
-                ? 'bg-slate-100 text-slate-400 border-slate-300'
-                : 'bg-slate-800 text-slate-500 border-slate-700'
+            className={`h-14 w-14 rounded-[var(--radius-md)] border flex items-center justify-center transition active:scale-95 bg-[var(--surface-2)] border-[var(--border-color)] ${
+              settings.beepEnabled ? 'text-[var(--accent-2)]' : 'text-[var(--text-secondary)]'
             }`}
             title={settings.beepEnabled ? 'Mute audio beeps' : 'Enable audio beeps'}
             aria-label="Toggle audio alerts"
@@ -1994,7 +1960,7 @@ export default function App() {
 
         {/* Wake lock indicator */}
         {isNavigating && (
-          <div className="mt-1 text-center text-[10px] font-bold text-slate-400">
+          <div className="mt-1 text-center text-[10px] font-bold text-[var(--text-secondary)]">
             {isScreenLocked ? '⚡ Screen Wake Lock Active' : 'Navigating'}
           </div>
         )}
