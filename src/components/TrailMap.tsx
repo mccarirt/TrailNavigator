@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoPoint, ProjectedPosition, Trail, TurnCue, UserPosition, BreadcrumbPoint } from '../types';
 import { Crosshair, Maximize2, ZoomIn, ZoomOut, Route } from 'lucide-react';
+import { Units, formatElevation } from '../utils/units';
 
 interface TrailMapProps {
   trail: Trail;
@@ -15,6 +16,7 @@ interface TrailMapProps {
   heading: number;
   highContrastMode: 'dark-slate' | 'sunlight-bright';
   breadcrumbs?: BreadcrumbPoint[][];
+  units?: Units;
 }
 
 export const TrailMap: React.FC<TrailMapProps> = ({
@@ -29,6 +31,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   heading,
   highContrastMode,
   breadcrumbs = [],
+  units = 'imperial',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -127,7 +130,14 @@ export const TrailMap: React.FC<TrailMapProps> = ({
 
     // Live "My Route" Layer Group & Canvas Renderer
     // Drawn above the planned trail line, below markers
-    const routeCanvas = L.canvas({ padding: 0.5 });
+    // Leaflet stacks SVG layers (z-index 200) above canvas layers (z-index 100) within the same
+    // pane, which hid the route under the SVG trail. Give the route its own pane above the overlay pane.
+    if (!map.getPane('myRoutePane')) {
+      const routePane = map.createPane('myRoutePane');
+      routePane.style.zIndex = '450';
+      routePane.style.pointerEvents = 'none';
+    }
+    const routeCanvas = L.canvas({ padding: 0.5, pane: 'myRoutePane' });
     myRouteCanvasRef.current = routeCanvas;
 
     const routeGroup = L.layerGroup();
@@ -147,7 +157,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           const polyline = L.polyline(latLngs, {
             renderer: routeCanvas,
             color: routeColor,
-            weight: 4,
+            weight: 5,
             opacity: 0.95,
             lineCap: 'round',
             lineJoin: 'round',
@@ -310,7 +320,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           const polyline = L.polyline(latLngs, {
             renderer: myRouteCanvasRef.current!,
             color: routeColor,
-            weight: 4,
+            weight: 5,
             opacity: 0.95,
             lineCap: 'round',
             lineJoin: 'round',
@@ -358,7 +368,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         const polyline = L.polyline(latLngs, {
           renderer: myRouteCanvasRef.current!,
           color: routeColor,
-          weight: 4,
+          weight: 5,
           opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
@@ -382,7 +392,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           const polyline = L.polyline(latLngs, {
             renderer: myRouteCanvasRef.current!,
             color: routeColor,
-            weight: 4,
+            weight: 5,
             opacity: 0.95,
             lineCap: 'round',
             lineJoin: 'round',
@@ -473,7 +483,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         zIndexOffset: 600,
       }).addTo(waypointsGroupRef.current!);
 
-      const eleText = wpt.ele !== undefined ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Elevation: ${wpt.ele} m</div>` : '';
+      const eleText = wpt.ele !== undefined ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Elevation: ${formatElevation(wpt.ele, units)}</div>` : '';
       const descText = wpt.desc ? `<div style="font-size:11px;color:#334155;margin-top:4px;line-height:1.3;">${wpt.desc}</div>` : '';
 
       marker.bindPopup(`
@@ -489,7 +499,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         offset: [0, -24],
       });
     });
-  }, [trail.id, trail.waypoints]);
+  }, [trail.id, trail.waypoints, units]);
 
   // Update User Position & Heading
   useEffect(() => {

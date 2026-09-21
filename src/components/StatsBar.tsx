@@ -1,5 +1,6 @@
 import React from 'react';
 import { Timer, Footprints, Clock, Route, AlertTriangle, X } from 'lucide-react';
+import { Units, formatDistanceParts, formatPaceParts, formatShortDistance } from '../utils/units';
 
 interface StatsBarProps {
   totalElapsedSeconds: number; // Elapsed hike time in seconds
@@ -13,6 +14,7 @@ interface StatsBarProps {
   isReverseMode?: boolean;
   onClose?: () => void;
   distanceWalked?: number; // in meters (sum of breadcrumb segments)
+  units?: Units;
 }
 
 // Format Total Time (hh:mm:ss or mm:ss)
@@ -45,26 +47,13 @@ export const formatTimeRemaining = (sec: number | null, distanceRemaining: numbe
   return '< 1 min';
 };
 
-// Format Pace (min:sec /km)
-export const formatPace = (secPerKm: number | null) => {
-  if (secPerKm === null || !isFinite(secPerKm) || secPerKm <= 0 || secPerKm > 3600) {
-    return { val: '--:--', unit: '/km' };
-  }
-  const mins = Math.floor(secPerKm / 60);
-  const secs = Math.floor(secPerKm % 60);
-  return {
-    val: `${mins}:${secs.toString().padStart(2, '0')}`,
-    unit: '/km',
-  };
-};
+// Format Pace (min:sec per mile or per km). Input is seconds per km.
+export const formatPace = (secPerKm: number | null, units: Units = 'imperial') =>
+  formatPaceParts(secPerKm, units);
 
-// Format distance
-export const formatDist = (meters: number) => {
-  if (meters >= 1000) {
-    return { val: (meters / 1000).toFixed(2), unit: 'km' };
-  }
-  return { val: Math.max(0, Math.round(meters)).toString(), unit: 'm' };
-};
+// Format distance (input in meters)
+export const formatDist = (meters: number, units: Units = 'imperial') =>
+  formatDistanceParts(meters, units);
 
 export const StatsBar: React.FC<StatsBarProps> = ({
   totalElapsedSeconds,
@@ -78,14 +67,15 @@ export const StatsBar: React.FC<StatsBarProps> = ({
   isReverseMode = false,
   onClose,
   distanceWalked = 0,
+  units = 'imperial',
 }) => {
   const isDayMode = highContrastMode === 'sunlight-bright';
 
-  const remaining = formatDist(distanceRemaining);
-  const soFar = formatDist(distanceSoFar);
-  const walked = formatDist(distanceWalked);
-  const pace = formatPace(paceSecondsPerKm);
-  const fromTrailRounded = Math.round(distanceFromTrail);
+  const remaining = formatDist(distanceRemaining, units);
+  const soFar = formatDist(distanceSoFar, units);
+  const walked = formatDist(distanceWalked, units);
+  const pace = formatPace(paceSecondsPerKm, units);
+  const fromTrailText = formatShortDistance(distanceFromTrail, units);
   const isDistWarning = distanceFromTrail > offTrailThreshold * 0.75;
   const isDistAlert = distanceFromTrail >= offTrailThreshold;
 
@@ -169,7 +159,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({
             </div>
             <div className="mt-0.5">
               <span className="text-base sm:text-lg font-black tracking-tight text-emerald-400 font-mono">
-                {formatTimeRemaining(estimatedTimeRemainingSeconds)}
+                {formatTimeRemaining(estimatedTimeRemainingSeconds, distanceRemaining)}
               </span>
             </div>
           </div>
@@ -224,7 +214,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({
                   : 'text-slate-200'
               }`}
             >
-              {fromTrailRounded} m
+              {fromTrailText}
             </span>
             {isDistAlert && <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />}
           </div>
