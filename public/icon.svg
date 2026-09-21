@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0f172a"/>
+  <!-- Mountain contours / trail -->
+  <path d="M64 400 L180 230 L260 330 L350 200 L448 350 L448 440 L64 440 Z" fill="#1e293b"/>
+  <!-- Hiking Trail line (bright emerald/lime high contrast) -->
+  <path d="M96 380 Q 180 270 230 310 T 360 210 T 430 260" fill="none" stroke="#22c55e" stroke-width="20" stroke-linecap="round" stroke-dasharray="24 16"/>
+  <!-- Compass dial ring -->
+  <circle cx="256" cy="180" r="110" fill="#0f172a" stroke="#f8fafc" stroke-width="12" filter="drop-shadow(0 4px 12px rgba(0,0,0,0.5))"/>
+  <!-- Compass cardinal ticks -->
+  <line x1="256" y1="78" x2="256" y2="92" stroke="#ef4444" stroke-width="8" stroke-linecap="round"/>
+  <line x1="256" y1="268" x2="256" y2="282" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
+  <line x1="154" y1="180" x2="168" y2="180" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
+  <line x1="344" y1="180" x2="358" y2="180" stroke="#94a3b8" stroke-width="8" stroke-linecap="round"/>
+  <!-- Compass Needle (Red North, White South) -->
+  <polygon points="256,96 276,176 256,164 236,176" fill="#ef4444"/>
+  <polygon points="256,264 276,184 256,196 236,184" fill="#f8fafc"/>
+  <circle cx="256" cy="180" r="12" fill="#0f172a" stroke="#38bdf8" stroke-width="6"/>
+</svg>

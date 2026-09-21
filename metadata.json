@@ -1,0 +1,10 @@
+{
+  "name": "Trail Navigator",
+  "description": "Mobile-first sunlight-readable hiking trail navigation PWA from GPX files with live tracking, compass guidance, turn cues, and off-trail alerts.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
