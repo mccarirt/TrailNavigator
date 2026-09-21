@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { GeoPoint, ProjectedPosition, Trail, TurnCue, UserPosition, BreadcrumbPoint } from '../types';
 import { Crosshair, Maximize2, ZoomIn, ZoomOut, Route } from 'lucide-react';
 import { Units, formatElevation } from '../utils/units';
+import { calculateBearing, getPointAtDistance } from '../utils/geo';
 
 interface TrailMapProps {
   trail: Trail;
@@ -17,6 +18,7 @@ interface TrailMapProps {
   highContrastMode: 'dark-slate' | 'sunlight-bright';
   breadcrumbs?: BreadcrumbPoint[][];
   units?: Units;
+  isReverseMode?: boolean;
 }
 
 export const TrailMap: React.FC<TrailMapProps> = ({
@@ -32,6 +34,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   highContrastMode,
   breadcrumbs = [],
   units = 'imperial',
+  isReverseMode = false,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -67,6 +70,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   const targetMarkerRef = useRef<L.CircleMarker | null>(null);
   const turnMarkersGroupRef = useRef<L.LayerGroup | null>(null);
   const waypointsGroupRef = useRef<L.LayerGroup | null>(null);
+  const directionArrowsGroupRef = useRef<L.LayerGroup | null>(null);
 
   const isDayMode = highContrastMode === 'sunlight-bright';
   // Canvas-rendered layers (the live "My Route" breadcrumb) can't resolve CSS custom
@@ -206,6 +210,10 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     // Waypoints layer group
     const wptGroup = L.layerGroup().addTo(map);
     waypointsGroupRef.current = wptGroup;
+
+    // Direction-of-travel arrows layer group (drawn on the trail line itself)
+    const arrowsGroup = L.layerGroup().addTo(map);
+    directionArrowsGroupRef.current = arrowsGroup;
 
     // Guidance/Projection line
     const projLine = L.polyline([], {
@@ -500,6 +508,48 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       });
     });
   }, [trail.id, trail.waypoints, units]);
+
+  // Direction-of-travel arrows along the trail line, so a loop's walking direction is visible
+  // on the map itself (not just implied by turn cues). Flips when the hiker reverses direction.
+  useEffect(() => {
+    if (!directionArrowsGroupRef.current) return;
+    directionArrowsGroupRef.current.clearLayers();
+
+    const points = trail.points;
+    if (!points || points.length < 2) return;
+
+    const total = points[points.length - 1].cumDistance ?? 0;
+    if (total <= 0) return;
+
+    // Evenly spaced arrows: at least 4 on a short trail, at most 30 on a long one
+    const arrowCount = Math.min(30, Math.max(4, Math.round(total / 150)));
+    const spacing = total / arrowCount;
+    const lookMeters = Math.min(8, spacing / 4);
+
+    for (let i = 0; i < arrowCount; i++) {
+      const dist = spacing * (i + 0.5);
+      const behind = getPointAtDistance(points, Math.max(0, dist - lookMeters));
+      const ahead = getPointAtDistance(points, Math.min(total, dist + lookMeters));
+      const here = getPointAtDistance(points, dist);
+
+      const bearing = isReverseMode
+        ? calculateBearing(ahead.lat, ahead.lon, behind.lat, behind.lon)
+        : calculateBearing(behind.lat, behind.lon, ahead.lat, ahead.lon);
+
+      const arrowIcon = L.divIcon({
+        className: 'trail-direction-arrow',
+        html: `<div style="width:20px;height:20px;transform:rotate(${bearing}deg);display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          <svg width="16" height="16" viewBox="0 0 16 16"><polygon points="8,1 14,13 8,10 2,13" fill="var(--accent-2)" stroke="var(--surface)" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
+
+      L.marker([here.lat, here.lon], { icon: arrowIcon, interactive: false }).addTo(
+        directionArrowsGroupRef.current!
+      );
+    }
+  }, [trail.id, trail.points, isReverseMode]);
 
   // Update User Position & Heading
   useEffect(() => {

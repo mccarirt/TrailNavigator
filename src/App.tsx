@@ -1817,6 +1817,7 @@ export default function App() {
           highContrastMode={settings.highContrastMode}
           breadcrumbs={breadcrumbSegments}
           units={settings.units}
+          isReverseMode={isReverseMode}
         />
 
         {/* 1. Slidable Compass & Guidance Header (Slides down from top when focused) */}
