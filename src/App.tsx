@@ -1665,6 +1665,12 @@ export default function App() {
               setIsSimulationMode(prev => !prev);
               if (!isSimulationMode) {
                 setIsSimulatingWalk(true);
+                // Off-trail/turn-cue sound, vibration and warnings only run while
+                // isNavigating is true, so turning on Test mode must start "navigating"
+                // too - otherwise the desk-test buttons silently do nothing.
+                if (!isNavigating) {
+                  handleToggleNavigation();
+                }
               }
             }}
             className={`px-2.5 py-1.5 rounded-[var(--radius-sm)] border text-xs font-extrabold uppercase flex items-center gap-1 transition active:scale-95 ${
