@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppSettings } from '../types';
-import { X, Sliders, Volume2, Vibrate, Sun, Compass, Ruler } from 'lucide-react';
+import { X, Sliders, Volume2, Vibrate, Sun, Compass, Ruler, MessageCircle } from 'lucide-react';
 import { METERS_PER_FOOT, formatShortDistance } from '../utils/units';
 
 interface SettingsModalProps {
@@ -199,6 +199,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 type="checkbox"
                 checked={settings.vibrateEnabled}
                 onChange={e => onUpdateSettings({ ...settings, vibrateEnabled: e.target.checked })}
+                className="w-6 h-6 accent-[var(--accent-2)] rounded cursor-pointer"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-[var(--accent-2)]" />
+                <div>
+                  <div className="text-sm font-bold">Voice Announcements</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Spoken turn cues and off-trail warnings</div>
+                </div>
+              </div>
+              <input
+                id="toggle-voice-setting"
+                type="checkbox"
+                checked={settings.voiceEnabled}
+                onChange={e => onUpdateSettings({ ...settings, voiceEnabled: e.target.checked })}
                 className="w-6 h-6 accent-[var(--accent-2)] rounded cursor-pointer"
               />
             </div>
