@@ -84,10 +84,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       attributionControl: false,
     });
 
-    // High-contrast OpenStreetMap tiles
-    const tileUrl = isDayMode
-      ? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     L.tileLayer(tileUrl, {
       maxZoom: 19,
