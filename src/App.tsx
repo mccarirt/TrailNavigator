@@ -1661,6 +1661,7 @@ export default function App() {
           <button
             id="toggle-simulation-mode-btn"
             onClick={() => {
+              unlockAudio();
               setIsSimulationMode(prev => !prev);
               if (!isSimulationMode) {
                 setIsSimulatingWalk(true);
@@ -1900,12 +1901,21 @@ export default function App() {
           <div className="absolute top-2 left-2 right-14 z-[400] max-w-sm pointer-events-auto">
             <SimulationControls
               isSimulating={isSimulatingWalk}
-              onToggleSimulation={() => setIsSimulatingWalk(prev => !prev)}
+              onToggleSimulation={() => {
+                unlockAudio();
+                setIsSimulatingWalk(prev => !prev);
+              }}
               speedKmh={simSpeedKmh}
               onChangeSpeed={setSimSpeedKmh}
-              onDriftOffTrail={() => setIsDriftingOffTrail(true)}
+              onDriftOffTrail={() => {
+                unlockAudio();
+                setIsDriftingOffTrail(true);
+              }}
               onReturnToTrail={() => setIsDriftingOffTrail(false)}
-              onJumpToNextTurn={handleJumpToNextTurn}
+              onJumpToNextTurn={() => {
+                unlockAudio();
+                handleJumpToNextTurn();
+              }}
               onJumpToEnd={handleJumpToFinish}
               onTurnAroundAt={handleSimTurnAroundAt}
               isReverseMode={isReverseMode}
