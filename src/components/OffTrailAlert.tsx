@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertOctagon, ArrowUpRight, Volume2, VolumeX, X } from 'lucide-react';
+import { Units, formatShortDistance } from '../utils/units';
 
 interface OffTrailAlertProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface OffTrailAlertProps {
   onDismiss: () => void;
   isAudioMuted: boolean;
   onToggleMute: () => void;
+  units?: Units;
 }
 
 export const OffTrailAlert: React.FC<OffTrailAlertProps> = ({
@@ -19,8 +21,10 @@ export const OffTrailAlert: React.FC<OffTrailAlertProps> = ({
   onDismiss,
   isAudioMuted,
   onToggleMute,
+  units = 'imperial',
 }) => {
   if (!isOpen) return null;
+  const offText = formatShortDistance(distanceOffTrail, units);
 
   // Arrow angle pointing back to nearest trail point relative to user's heading
   const relativeAngle = ((bearingToTrail - heading + 360) % 360);
@@ -57,14 +61,14 @@ export const OffTrailAlert: React.FC<OffTrailAlertProps> = ({
               id="off-trail-banner-text"
               className="text-sm sm:text-base font-black uppercase tracking-tight truncate drop-shadow-sm"
             >
-              OFF TRAIL – {Math.round(distanceOffTrail)} m
+              OFF TRAIL – {offText}
             </h1>
             <span className="hidden sm:inline-block text-[10px] font-extrabold uppercase tracking-wider bg-black/30 px-2 py-0.5 rounded-md">
               Walk toward arrow
             </span>
           </div>
           <p className="text-[11px] sm:text-xs text-rose-100 font-semibold truncate">
-            Trail is {Math.round(distanceOffTrail)} m away. Walk toward the arrow to re-join.
+            Trail is {offText} away. Walk toward the arrow to re-join.
           </p>
         </div>
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { TurnCue } from '../types';
 import { CornerUpLeft, CornerUpRight, ArrowUp, RotateCcw, AlertTriangle, ShieldCheck, Compass, X } from 'lucide-react';
 import { normalizeAngleDiff } from '../utils/geo';
+import { Units, formatShortDistance } from '../utils/units';
 
 interface CompassHeaderProps {
   arrowAngle: number; // in degrees (bearingToTarget - heading)
@@ -17,6 +18,7 @@ interface CompassHeaderProps {
   onRequestPermission: () => void;
   highContrastMode: 'dark-slate' | 'sunlight-bright';
   onClose?: () => void;
+  units?: Units;
 }
 
 export const CompassHeader: React.FC<CompassHeaderProps> = ({
@@ -33,6 +35,7 @@ export const CompassHeader: React.FC<CompassHeaderProps> = ({
   onRequestPermission,
   highContrastMode,
   onClose,
+  units = 'imperial',
 }) => {
   const normalizedAngle = normalizeAngleDiff(arrowAngle);
 
@@ -90,9 +93,7 @@ export const CompassHeader: React.FC<CompassHeaderProps> = ({
               <span className="truncate">
                 {nextTurnCue.description} in{' '}
                 <strong className="underline decoration-2">
-                  {distanceToNextTurn < 1000
-                    ? `${Math.round(distanceToNextTurn)} m`
-                    : `${(distanceToNextTurn / 1000).toFixed(1)} km`}
+                  {formatShortDistance(distanceToNextTurn, units)}
                 </strong>
               </span>
             </div>
@@ -253,7 +254,7 @@ export const CompassHeader: React.FC<CompassHeaderProps> = ({
               isOffTrail ? 'text-rose-400 font-extrabold' : isDayMode ? 'text-slate-700' : 'text-slate-400'
             }`}
           >
-            {isOffTrail ? 'OFF TRAIL' : `${Math.round(distanceToTarget)}m AHEAD`}
+            {isOffTrail ? 'OFF TRAIL' : `${formatShortDistance(distanceToTarget, units)} AHEAD`}
           </div>
         </div>
       </div>

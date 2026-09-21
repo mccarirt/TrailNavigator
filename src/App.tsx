@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppSettings, Trail, TurnCue, UserPosition, BreadcrumbPoint } from './types';
+import { AppSettings, ProjectedPosition, Trail, TurnCue, UserPosition, BreadcrumbPoint } from './types';
 import { generateSampleTrails } from './utils/gpxParser';
 import {
   calculateBearing,
@@ -12,6 +12,8 @@ import {
   invertTurnType,
   invertTurnDescription,
   calculateBreadcrumbsDistance,
+  resolveRoundTripPosition,
+  createRoundTripState,
 } from './utils/geo';
 import {
   playArrivalFanfare,
@@ -76,6 +78,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   vibrateEnabled: true,
   lookAheadDistance: 40, // 40 meters ahead along trail
   highContrastMode: 'dark-slate',
+  units: 'imperial', // miles & feet by default; metric available in settings
 };
 
 export type GpsState = 'acquiring' | 'ok' | 'denied' | 'unavailable' | 'timeout';
@@ -179,13 +182,17 @@ export default function App() {
 
   // Round-trip leg tracking ('outbound' | 'return')
   const currentLegRef = useRef<'outbound' | 'return'>('outbound');
-  const legSwitchFixesRef = useRef<Array<{
-    lat: number;
-    lon: number;
-    candidateLeg: 'outbound' | 'return';
-    distAlong: number;
-    timestamp: number;
-  }>>([]);
+
+  // Round-trip leg tracker state (bearing + progress-trend evidence, see resolveRoundTripPosition)
+  const roundTripStateRef = useRef(createRoundTripState());
+  // Last confident direction of travel, kept while standing still or moving too little to measure a bearing
+  const lastConfidentBearingRef = useRef<number | undefined>(undefined);
+  // Memoized projection for the current fix, so re-renders never process the same fix twice
+  const projectionCacheRef = useRef<{ key: string; value: ProjectedPosition | null } | null>(null);
+  // Notice raised while computing a projection; shown from an effect (never set state during render)
+  const pendingNoticeRef = useRef<string | null>(null);
+  // Furthest straight-line distance from the trail start (used to detect returning to the trailhead)
+  const maxDistFromStartRef = useRef<number>(0);
 
   // Accepted GPS fixes for computing movementBearing when fixes > 5m apart
   const acceptedFixesRef = useRef<Array<{ lat: number; lon: number; timestamp: number }>>([]);
@@ -422,7 +429,10 @@ export default function App() {
     breadcrumbSegmentsRef.current = [];
     progressHistoryRef.current = [];
     currentLegRef.current = 'outbound';
-    legSwitchFixesRef.current = [];
+    roundTripStateRef.current = createRoundTripState();
+    lastConfidentBearingRef.current = undefined;
+    projectionCacheRef.current = null;
+    maxDistFromStartRef.current = 0;
     acceptedFixesRef.current = [];
     reverseProgressFixesRef.current = [];
     setIsReverseMode(false);
@@ -505,6 +515,10 @@ export default function App() {
   };
 
   // Toggle Theme Mode
+  const handleChangeUnits = (units: 'imperial' | 'metric') => {
+    setSettings(prev => ({ ...prev, units }));
+  };
+
   const handleToggleTheme = () => {
     setSettings(prev => ({
       ...prev,
@@ -527,7 +541,10 @@ export default function App() {
       warned30mTurnsRef.current.clear();
       progressHistoryRef.current = [];
       currentLegRef.current = 'outbound';
-      legSwitchFixesRef.current = [];
+      roundTripStateRef.current = createRoundTripState();
+      lastConfidentBearingRef.current = undefined;
+      projectionCacheRef.current = null;
+      maxDistFromStartRef.current = 0;
       acceptedFixesRef.current = [];
       reverseProgressFixesRef.current = [];
       setIsReverseMode(false);
@@ -784,11 +801,14 @@ export default function App() {
     }
   }, [userPosition, isNavigating, isSimulatingWalk]);
 
-  // movementBearing: GPS heading when speed > 0.7 m/s, or from the last two accepted fixes more than 5 m apart
+  // movementBearing (direction of travel):
+  //  1. GPS heading when moving faster than 0.7 m/s
+  //  2. otherwise the bearing over the last >= 25 m of travelled path (>= 15 m in a straight line),
+  //     which is long enough to average out GPS jitter
+  //  3. otherwise the last confident bearing (standing still, or too little movement to tell)
   const movementBearing = useMemo(() => {
     if (!userPosition) return undefined;
 
-    // 1. GPS heading when speed > 0.7 m/s
     if (
       userPosition.speed !== null &&
       userPosition.speed !== undefined &&
@@ -797,128 +817,104 @@ export default function App() {
       userPosition.heading !== undefined &&
       !isNaN(userPosition.heading)
     ) {
+      lastConfidentBearingRef.current = userPosition.heading;
       return userPosition.heading;
     }
 
-    // 2. Movement bearing from the last two accepted fixes more than 5 m apart
     const fixes = acceptedFixesRef.current;
+    let pathLen = 0;
+    let prevLat = userPosition.lat;
+    let prevLon = userPosition.lon;
     for (let i = fixes.length - 1; i >= 0; i--) {
-      const prev = fixes[i];
-      const dist = haversineDistance(prev.lat, prev.lon, userPosition.lat, userPosition.lon);
-      if (dist > 5) {
-        return calculateBearing(prev.lat, prev.lon, userPosition.lat, userPosition.lon);
+      pathLen += haversineDistance(fixes[i].lat, fixes[i].lon, prevLat, prevLon);
+      prevLat = fixes[i].lat;
+      prevLon = fixes[i].lon;
+      if (
+        pathLen >= 25 &&
+        haversineDistance(fixes[i].lat, fixes[i].lon, userPosition.lat, userPosition.lon) >= 15
+      ) {
+        const b = calculateBearing(fixes[i].lat, fixes[i].lon, userPosition.lat, userPosition.lon);
+        lastConfidentBearingRef.current = b;
+        return b;
       }
     }
 
-    return undefined;
+    return lastConfidentBearingRef.current;
   }, [userPosition]);
 
-  // Closest point projection on trail
-  // Keep lastDistanceAlong in a ref, search within -100m to +300m, fall back to full search after 3 consecutive off-trail fixes
-  // Support movementBearing and isRoundTrip / reverse mode rules
+  // Closest point projection on trail.
+  // - Normal trails: search a window around the last position (-100 m to +300 m), widening to the whole
+  //   trail after 3 consecutive off-trail fixes.
+  // - Round trips (out-and-back files): resolveRoundTripPosition decides which leg the hiker is on.
+  // The result is cached per GPS fix, so re-renders never count the same fix twice, and any notice is
+  // queued in a ref and shown from an effect instead of setting state during render.
   const projectedPosition = useMemo(() => {
     if (!activeTrail || !userPosition) return null;
 
-    const proj = findClosestPointOnTrail(
-      userPosition.lat,
-      userPosition.lon,
-      activeTrail.points,
-      activeTrail.totalDistance,
-      {
+    const cacheKey = `${activeTrail.id}|${userPosition.timestamp}|${userPosition.lat}|${userPosition.lon}|${isReverseMode}|${offTrailCountRef.current >= 3}`;
+    if (projectionCacheRef.current && projectionCacheRef.current.key === cacheKey) {
+      return projectionCacheRef.current.value;
+    }
+
+    let proj: ProjectedPosition | null;
+
+    if (activeTrail.isRoundTrip && !isReverseMode) {
+      const state = roundTripStateRef.current;
+      // Other code (start, resume, simulation helpers) sets these refs directly, so sync them in
+      state.leg = currentLegRef.current;
+      state.lastDistanceAlong = lastDistanceAlongRef.current;
+
+      const result = resolveRoundTripPosition(
+        activeTrail,
+        userPosition,
         movementBearing,
-        lastDistanceAlong: lastDistanceAlongRef.current ?? undefined,
-        isRoundTrip: activeTrail.isRoundTrip,
-        consecutiveOffTrailCount: offTrailCountRef.current,
-        isReverseMode,
+        state,
+        offTrailCountRef.current
+      );
+      proj = result.proj;
+      currentLegRef.current = state.leg;
+      lastDistanceAlongRef.current = state.lastDistanceAlong;
+      if (result.turnedAround) {
+        pendingNoticeRef.current = 'Turned around – heading back to start';
       }
-    );
-
-    if (proj) {
-      if (activeTrail.isRoundTrip) {
-        const midDist = activeTrail.totalDistance / 2;
-        const projLeg = proj.distanceAlongTrail <= midDist ? 'outbound' : 'return';
-
-        if (projLeg === currentLegRef.current) {
-          legSwitchFixesRef.current = [];
-          lastDistanceAlongRef.current = proj.distanceAlongTrail;
-        } else {
-          // Candidate leg switch: requires 5 consecutive fixes, over at least 20 m of movement, that agree
-          const switchFixes = legSwitchFixesRef.current;
-          switchFixes.push({
-            lat: userPosition.lat,
-            lon: userPosition.lon,
-            candidateLeg: projLeg,
-            distAlong: proj.distanceAlongTrail,
-            timestamp: userPosition.timestamp,
-          });
-
-          // Measure movement distance across candidate fixes
-          let moveDist = 0;
-          for (let i = 1; i < switchFixes.length; i++) {
-            moveDist += haversineDistance(
-              switchFixes[i - 1].lat,
-              switchFixes[i - 1].lon,
-              switchFixes[i].lat,
-              switchFixes[i].lon
-            );
-          }
-
-          if (switchFixes.length >= 5 && moveDist >= 20) {
-            const prevLeg = currentLegRef.current;
-            currentLegRef.current = projLeg;
-            legSwitchFixesRef.current = [];
-
-            // If the user reverses on the outbound leg at distance d, match them to the return leg at (total - d).
-            // Show notice: "Turned around – heading back to start"
-            if (prevLeg === 'outbound' && projLeg === 'return') {
-              const d =
-                lastDistanceAlongRef.current !== null && lastDistanceAlongRef.current <= midDist
-                  ? lastDistanceAlongRef.current
-                  : (proj.distanceAlongTrail <= midDist ? proj.distanceAlongTrail : activeTrail.totalDistance - proj.distanceAlongTrail);
-
-              if (d < midDist * 0.98) {
-                const returnTargetDist = activeTrail.totalDistance - d;
-                proj.distanceAlongTrail = returnTargetDist;
-                proj.distanceRemaining = Math.max(0, activeTrail.totalDistance - returnTargetDist);
-                lastDistanceAlongRef.current = returnTargetDist;
-              } else {
-                lastDistanceAlongRef.current = proj.distanceAlongTrail;
-              }
-              setTurnAroundNotice("Turned around – heading back to start");
-            } else {
-              lastDistanceAlongRef.current = proj.distanceAlongTrail;
-            }
-          } else {
-            // Stay projected on the current leg until 5 consecutive fixes over 20m agree
-            const currentLegPoints =
-              currentLegRef.current === 'outbound'
-                ? activeTrail.points.slice(0, Math.floor(activeTrail.points.length / 2) + 1)
-                : activeTrail.points.slice(Math.floor(activeTrail.points.length / 2));
-            const legProj = findClosestPointOnTrail(
-              userPosition.lat,
-              userPosition.lon,
-              currentLegPoints,
-              activeTrail.totalDistance,
-              {
-                movementBearing,
-                lastDistanceAlong: lastDistanceAlongRef.current ?? undefined,
-                isRoundTrip: false,
-                consecutiveOffTrailCount: offTrailCountRef.current,
-                isReverseMode,
-              }
-            );
-            if (legProj) {
-              return legProj;
-            }
-          }
+    } else {
+      proj = findClosestPointOnTrail(
+        userPosition.lat,
+        userPosition.lon,
+        activeTrail.points,
+        activeTrail.totalDistance,
+        {
+          movementBearing,
+          lastDistanceAlong: lastDistanceAlongRef.current ?? undefined,
+          isRoundTrip: false,
+          consecutiveOffTrailCount: offTrailCountRef.current,
+          isReverseMode,
         }
-      } else {
+      );
+      if (proj) {
         lastDistanceAlongRef.current = proj.distanceAlongTrail;
       }
     }
 
+    projectionCacheRef.current = { key: cacheKey, value: proj };
     return proj;
   }, [activeTrail, userPosition, movementBearing, isReverseMode]);
+
+  // Show queued notices (e.g. "Turned around") outside of render
+  useEffect(() => {
+    if (pendingNoticeRef.current) {
+      setTurnAroundNotice(pendingNoticeRef.current);
+      pendingNoticeRef.current = null;
+    }
+  }, [projectedPosition]);
+
+  // Track how far from the trailhead the hiker has been (for detecting the return to the start)
+  useEffect(() => {
+    if (!isNavigating || !userPosition || !activeTrail || activeTrail.points.length === 0) return;
+    const start = activeTrail.points[0];
+    const d = haversineDistance(userPosition.lat, userPosition.lon, start.lat, start.lon);
+    if (d > maxDistFromStartRef.current) maxDistFromStartRef.current = d;
+  }, [isNavigating, userPosition, activeTrail]);
 
   // Timer loop for Total Elapsed Time
   useEffect(() => {
@@ -1204,9 +1200,10 @@ export default function App() {
     return getRelativeDirectionText(
       arrowAngle,
       distanceToTarget,
-      navigationTarget?.isReturningToTrail ?? false
+      navigationTarget?.isReturningToTrail ?? false,
+      settings.units
     );
-  }, [arrowAngle, distanceToTarget, navigationTarget]);
+  }, [arrowAngle, distanceToTarget, navigationTarget, settings.units]);
 
   // Next Turn Cue & Distance to it
   // In reverse mode, turn cues are inverted (left <-> right, descriptions inverted, sorted descending)
@@ -1274,6 +1271,20 @@ export default function App() {
     return activeTrail.turnCues;
   }, [activeTrail, isReverseMode]);
 
+  // Turn cue markers shown on the map: only the next few in the direction of travel, so labels don't pile up
+  // (a trail can have dozens of cues, and out-and-backs list every one twice).
+  const mapTurnCues = useMemo(() => {
+    const along = projectedPosition?.distanceAlongTrail ?? 0;
+    const inWindow = displayTurnCues.filter(c =>
+      isReverseMode
+        ? c.distanceAlongTrail <= along + 20 && c.distanceAlongTrail >= along - 800
+        : c.distanceAlongTrail >= along - 20 && c.distanceAlongTrail <= along + 800
+    );
+    return inWindow
+      .sort((a, b) => Math.abs(a.distanceAlongTrail - along) - Math.abs(b.distanceAlongTrail - along))
+      .slice(0, 4);
+  }, [displayTurnCues, projectedPosition?.distanceAlongTrail, isReverseMode]);
+
   // Turn warnings at 100 m and 30 m
   useEffect(() => {
     if (!isNavigating || !nextTurnCue || distanceToNextTurn === null) return;
@@ -1319,21 +1330,47 @@ export default function App() {
       ? haversineDistance(userPosition.lat, userPosition.lon, targetEndpoint.lat, targetEndpoint.lon)
       : Infinity;
 
-    const isNearEnd = distRemaining <= 25 || distToEndPoint <= 25;
+    // Being close to the end point in a straight line only counts if the path distance left is also short,
+    // so loops and out-and-backs (start == end) don't finish at the trailhead.
+    const isNearEnd = distRemaining <= 25 || (distToEndPoint <= 25 && distRemaining <= 100) || (activeTrail.isRoundTrip && distToEndPoint <= 25);
 
     // Check if user has made progress so loop trails don't immediately trigger on start
     const distTraveled = Math.max(0, Math.abs(projectedPosition.distanceAlongTrail - (navStartDistanceRef.current ?? 0)));
-    const hasProgressed =
-      distTraveled > 25 ||
-      projectedPosition.distanceAlongTrail > Math.min(60, activeTrail.totalDistance * 0.4) ||
-      elapsedSeconds >= 10;
+    // Round trips start and end at the same place, so "near the end" also has to mean "came back":
+    //  a) on the return leg and within 25 m of the end, or
+    //  b) walked at least 120 m, got at least 60 m away from the trailhead, and is back within 25 m of it
+    //     (doesn't depend on leg detection, which can be wrong in poor GPS conditions)
+    const cameBackToStart =
+      activeTrail.isRoundTrip &&
+      maxDistFromStartRef.current >= 60 &&
+      distanceActuallyWalked >= 120 &&
+      haversineDistance(
+        userPosition?.lat ?? 0,
+        userPosition?.lon ?? 0,
+        activeTrail.points[0].lat,
+        activeTrail.points[0].lon
+      ) <= 25;
+    const hasProgressed = activeTrail.isRoundTrip
+      ? isReverseMode
+        ? distanceActuallyWalked > 100
+        : (currentLegRef.current === 'return' &&
+            projectedPosition.distanceAlongTrail > activeTrail.totalDistance / 2) ||
+          cameBackToStart
+      : distTraveled > 25 ||
+        projectedPosition.distanceAlongTrail > Math.min(60, activeTrail.totalDistance * 0.4);
 
     if (isNearEnd && hasProgressed && !hasArrivedRef.current) {
       hasArrivedRef.current = true;
       playArrivalFanfare();
       vibrateArrival();
 
-      const totalHikeDistance = distTraveled > 0 ? distTraveled : projectedPosition.distanceAlongTrail;
+      // Report the distance actually walked (breadcrumbs), not the position difference along the trail
+      const totalHikeDistance =
+        distanceActuallyWalked > 0
+          ? distanceActuallyWalked
+          : distTraveled > 0
+          ? distTraveled
+          : projectedPosition.distanceAlongTrail;
       const totalGain = activeTrail.elevationGain ?? 0;
 
       setFinishSummary({
@@ -1350,7 +1387,7 @@ export default function App() {
       clearActiveSessionFromDB().catch(console.warn);
       setResumableSession(null);
     }
-  }, [isNavigating, activeTrail, projectedPosition, effectiveDistanceRemaining, userPosition, elapsedSeconds, isReverseMode]);
+  }, [isNavigating, activeTrail, projectedPosition, effectiveDistanceRemaining, userPosition, elapsedSeconds, isReverseMode, distanceActuallyWalked]);
 
   // Simulation test helper: Jump to next turn (positioned at 110m so both 100m and 30m warnings trigger)
   const handleJumpToNextTurn = useCallback(() => {
@@ -1408,7 +1445,8 @@ export default function App() {
         setSimWalkingDirection(1); // Return leg walks toward trail end
         lastDistanceAlongRef.current = returnLegDist;
         currentLegRef.current = 'return';
-        legSwitchFixesRef.current = [];
+        roundTripStateRef.current = createRoundTripState();
+        projectionCacheRef.current = null;
         setTurnAroundNotice("Turned around – heading back to start");
 
         const pt = getPointAtDistance(activeTrail.points, returnLegDist);
@@ -1497,6 +1535,8 @@ export default function App() {
           onReverseTrail={handleReverseTrail}
           highContrastMode={settings.highContrastMode}
           onToggleTheme={handleToggleTheme}
+          units={settings.units}
+          onChangeUnits={handleChangeUnits}
           resumableSession={
             resumableSession
               ? {
@@ -1782,13 +1822,14 @@ export default function App() {
           userPosition={userPosition}
           projectedPosition={projectedPosition}
           targetPoint={navigationTarget?.targetPoint ?? null}
-          turnCues={displayTurnCues}
+          turnCues={mapTurnCues}
           followMe={followMe}
           onToggleFollowMe={() => setFollowMe(prev => !prev)}
           onDisableFollowMe={() => setFollowMe(false)}
           heading={heading}
           highContrastMode={settings.highContrastMode}
           breadcrumbs={breadcrumbSegments}
+          units={settings.units}
         />
 
         {/* 1. Slidable Compass & Guidance Header (Slides down from top when focused) */}
@@ -1815,6 +1856,7 @@ export default function App() {
                 onRequestPermission={requestCompassPermission}
                 highContrastMode={settings.highContrastMode}
                 onClose={() => setIsCompassVisible(false)}
+                units={settings.units}
               />
             </motion.div>
           )}
@@ -1841,6 +1883,7 @@ export default function App() {
                 highContrastMode={settings.highContrastMode}
                 isReverseMode={isReverseMode}
                 distanceWalked={distanceActuallyWalked}
+                units={settings.units}
                 onClose={() => setIsStatsVisible(false)}
               />
             </motion.div>
@@ -1893,6 +1936,7 @@ export default function App() {
               onClose={() => setIsSimulationMode(false)}
               isDriftingOffTrail={isDriftingOffTrail}
               highContrastMode={settings.highContrastMode}
+              units={settings.units}
             />
           </div>
         )}
@@ -1978,6 +2022,7 @@ export default function App() {
         }}
         isAudioMuted={isAlertAudioMuted}
         onToggleMute={() => setIsAlertAudioMuted(prev => !prev)}
+        units={settings.units}
       />
 
       {/* Settings Modal */}
@@ -1998,6 +2043,7 @@ export default function App() {
           elevationGainMeters={finishSummary.gain}
           highContrastMode={settings.highContrastMode}
           breadcrumbs={breadcrumbSegments}
+          units={settings.units}
           onClose={() => setFinishSummary(null)}
           onBackToTrails={() => {
             setFinishSummary(null);

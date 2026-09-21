@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppSettings } from '../types';
-import { X, Sliders, Volume2, Vibrate, Sun, Compass } from 'lucide-react';
+import { X, Sliders, Volume2, Vibrate, Sun, Compass, Ruler } from 'lucide-react';
+import { METERS_PER_FOOT, formatShortDistance } from '../utils/units';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -18,9 +19,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   const isDayMode = settings.highContrastMode === 'sunlight-bright';
+  const units = settings.units ?? 'imperial';
+  const isImperial = units === 'imperial';
+
+  // Off-trail slider: stored in meters, displayed in the chosen unit
+  const thresholdSlider = isImperial
+    ? {
+        min: 50,
+        max: 250,
+        step: 25,
+        value: Math.round(settings.offTrailThreshold / METERS_PER_FOOT / 25) * 25,
+        minLabel: '50 ft',
+        maxLabel: '250 ft',
+        toMeters: (v: number) => v * METERS_PER_FOOT,
+      }
+    : {
+        min: 15,
+        max: 80,
+        step: 5,
+        value: Math.round(settings.offTrailThreshold / 5) * 5,
+        minLabel: '15 m',
+        maxLabel: '80 m',
+        toMeters: (v: number) => v,
+      };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 select-none">
+    <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-4 select-none">
       <div
         id="settings-modal-dialog"
         className={`w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl border transition-colors ${
@@ -46,6 +70,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Settings Form */}
         <div className="py-4 space-y-5">
+          {/* Units */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-black uppercase tracking-wider flex items-center gap-1.5">
+                <Ruler className="w-4 h-4 text-emerald-500" />
+                Units
+              </label>
+            </div>
+            <div className="mt-2.5 flex gap-2">
+              {([
+                ['imperial', 'Miles & feet'],
+                ['metric', 'Kilometers & meters'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  id={`units-${value}-btn`}
+                  onClick={() => onUpdateSettings({ ...settings, units: value })}
+                  className={`flex-1 py-2 rounded-xl text-xs font-black transition border ${
+                    units === value
+                      ? 'bg-emerald-600 text-white border-emerald-400'
+                      : isDayMode
+                      ? 'bg-slate-100 border-slate-300 text-slate-700'
+                      : 'bg-slate-800 border-slate-700 text-slate-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Off-Trail Threshold Slider */}
           <div>
             <div className="flex items-center justify-between">
@@ -53,32 +108,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Off-Trail Alert Distance
               </label>
               <span className="text-lg font-black text-emerald-500">
-                {settings.offTrailThreshold} meters
+                {formatShortDistance(settings.offTrailThreshold, units)}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Triggers warning banner, beep, and vibration if further than this for 3 fixes in a row.
             </p>
             <div className="mt-3 flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400">15m</span>
+              <span className="text-xs font-bold text-slate-400">{thresholdSlider.minLabel}</span>
               <input
                 id="off-trail-threshold-slider"
                 type="range"
-                min="15"
-                max="80"
-                step="5"
-                value={settings.offTrailThreshold}
-                onChange={e =>
+                min={thresholdSlider.min}
+                max={thresholdSlider.max}
+                step={thresholdSlider.step}
+                value={thresholdSlider.value}
+                onChange={e => {
+                  const meters = thresholdSlider.toMeters(parseInt(e.target.value, 10));
                   onUpdateSettings({
                     ...settings,
-                    offTrailThreshold: parseInt(e.target.value, 10),
-                    // clear threshold automatically adjusts to ~65% of alert threshold (e.g. 20m for 30m)
-                    offTrailClearThreshold: Math.max(10, Math.round(parseInt(e.target.value, 10) * 0.65)),
-                  })
-                }
+                    offTrailThreshold: meters,
+                    // clear threshold automatically adjusts to ~65% of alert threshold (e.g. 20 m for 30 m)
+                    offTrailClearThreshold: Math.max(10, Math.round(meters * 0.65)),
+                  });
+                }}
                 className="w-full accent-emerald-500 h-2 bg-slate-700 rounded-lg cursor-pointer"
               />
-              <span className="text-xs font-bold text-slate-400">80m</span>
+              <span className="text-xs font-bold text-slate-400">{thresholdSlider.maxLabel}</span>
             </div>
           </div>
 
@@ -90,7 +146,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 Target Lookahead Distance
               </label>
               <span className="text-base font-black text-sky-400">
-                {settings.lookAheadDistance} m
+                {formatShortDistance(settings.lookAheadDistance, units)}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -109,7 +165,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       : 'bg-slate-800 border-slate-700 text-slate-300'
                   }`}
                 >
-                  {dist} m
+                  {formatShortDistance(dist, units)}
                 </button>
               ))}
             </div>

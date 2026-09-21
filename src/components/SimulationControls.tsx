@@ -12,6 +12,7 @@ import {
   Trophy,
   RotateCcw,
 } from 'lucide-react';
+import { Units, formatSpeed } from '../utils/units';
 
 interface SimulationControlsProps {
   isSimulating: boolean;
@@ -27,6 +28,7 @@ interface SimulationControlsProps {
   onClose: () => void;
   isDriftingOffTrail: boolean;
   highContrastMode: 'dark-slate' | 'sunlight-bright';
+  units?: Units;
 }
 
 export const SimulationControls: React.FC<SimulationControlsProps> = ({
@@ -43,6 +45,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
   onClose,
   isDriftingOffTrail,
   highContrastMode,
+  units = 'imperial',
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [turnAroundPct, setTurnAroundPct] = useState(50);
@@ -62,7 +65,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
           <span className="text-[11px] font-black uppercase tracking-wider text-amber-500 truncate">
-            Sim {speedKmh} km/h
+            Sim {formatSpeed(speedKmh, units)}
           </span>
           {isDriftingOffTrail && (
             <span className="px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-black uppercase animate-pulse">
@@ -214,8 +217,8 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
           onChange={e => onChangeSpeed(parseInt(e.target.value, 10))}
           className="w-full accent-amber-500 h-2 bg-slate-700 rounded-lg cursor-pointer"
         />
-        <span className="text-xs font-black min-w-[55px] text-right text-amber-500">
-          {speedKmh} km/h
+        <span className="text-xs font-black min-w-[70px] text-right text-amber-500">
+          {formatSpeed(speedKmh, units)}
         </span>
       </div>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trophy, Clock, Route, TrendingUp, ChevronLeft, Repeat, X, Download } from 'lucide-react';
 import { formatTotalTime, formatDist } from './StatsBar';
+import { Units, formatElevationParts } from '../utils/units';
 import { exportBreadcrumbsToGPX } from '../utils/gpxParser';
 import { BreadcrumbPoint } from '../types';
 
@@ -15,6 +16,7 @@ interface FinishSummaryModalProps {
   onBackToTrails: () => void;
   onReverseTrail?: () => void;
   breadcrumbs?: BreadcrumbPoint[][];
+  units?: Units;
 }
 
 export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
@@ -28,11 +30,13 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
   onBackToTrails,
   onReverseTrail,
   breadcrumbs = [],
+  units = 'imperial',
 }) => {
   if (!isOpen) return null;
 
   const isDayMode = highContrastMode === 'sunlight-bright';
-  const dist = formatDist(totalDistanceMeters);
+  const dist = formatDist(totalDistanceMeters, units);
+  const gain = formatElevationParts(elevationGainMeters, units);
 
   const handleDownloadTrackGPX = () => {
     if (!breadcrumbs || breadcrumbs.length === 0) return;
@@ -137,7 +141,7 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
               Gain
             </div>
             <div className="text-base sm:text-lg font-black tracking-tight mt-0.5">
-              +{Math.round(elevationGainMeters)} <span className="text-xs font-normal text-slate-400">m</span>
+              +{gain.val} <span className="text-xs font-normal text-slate-400">{gain.unit}</span>
             </div>
           </div>
         </div>

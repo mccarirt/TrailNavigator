@@ -17,6 +17,7 @@ import {
   Repeat
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
+import { Units, formatDistance, formatElevation } from '../utils/units';
 
 interface TrailListScreenProps {
   savedTrails: Trail[];
@@ -33,6 +34,8 @@ interface TrailListScreenProps {
   } | null;
   onResumeHike?: () => void;
   onDiscardSession?: () => void;
+  units?: Units;
+  onChangeUnits?: (units: Units) => void;
 }
 
 export const TrailListScreen: React.FC<TrailListScreenProps> = ({
@@ -46,16 +49,16 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
   resumableSession,
   onResumeHike,
   onDiscardSession,
+  units = 'imperial',
+  onChangeUnits,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDayMode = highContrastMode === 'sunlight-bright';
 
-  // Format meters to km / miles
-  const formatDist = (meters: number) => {
-    return `${(meters / 1000).toFixed(1)} km (${(meters * 0.000621371).toFixed(1)} mi)`;
-  };
+  // Format meters in the selected units (miles/feet or km/meters)
+  const formatDist = (meters: number) => formatDistance(meters, units);
 
   const handleFileUpload = async (file: File) => {
     setErrorMessage(null);
@@ -132,6 +135,21 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
 
         <div className="flex items-center gap-2">
           <PWAInstallButton />
+          {onChangeUnits && (
+            <button
+              id="toggle-units-btn"
+              onClick={() => onChangeUnits(units === 'imperial' ? 'metric' : 'imperial')}
+              className={`px-3 py-2.5 rounded-xl border font-black text-xs transition active:scale-95 ${
+                isDayMode
+                  ? 'bg-slate-100 border-slate-300 text-slate-700'
+                  : 'bg-slate-800 border-slate-700 text-slate-300'
+              }`}
+              title="Switch between miles/feet and kilometers/meters"
+              aria-label="Toggle units"
+            >
+              {units === 'imperial' ? 'mi · ft' : 'km · m'}
+            </button>
+          )}
           <button
             id="toggle-theme-btn"
             onClick={onToggleTheme}
@@ -179,7 +197,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                   </span>
                   {resumableSession.lastDistanceAlong !== null && resumableSession.lastDistanceAlong !== undefined && (
                     <span>
-                      📍 {(resumableSession.lastDistanceAlong / 1000).toFixed(2)} km in
+                      📍 {formatDistance(resumableSession.lastDistanceAlong, units)} in
                     </span>
                   )}
                 </div>
@@ -310,10 +328,10 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                         {formatDist(trail.totalDistance)}
                       </span>
                       {trail.elevationGain !== undefined && (
-                        <span>+{trail.elevationGain} m gain</span>
+                        <span>+{formatElevation(trail.elevationGain, units)} gain</span>
                       )}
                       {trail.elevationLoss !== undefined && (
-                        <span>-{trail.elevationLoss} m loss</span>
+                        <span>-{formatElevation(trail.elevationLoss, units)} loss</span>
                       )}
                       {trail.waypoints && trail.waypoints.length > 0 && (
                         <span className="text-indigo-400 font-bold">{trail.waypoints.length} waypoints</span>
@@ -387,7 +405,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
               >
                 <div className="font-extrabold text-sm line-clamp-1">{sample.name}</div>
                 <div className="text-xs font-bold text-emerald-500 mt-0.5">
-                  {formatDist(sample.totalDistance)} · +{sample.elevationGain}m
+                  {formatDist(sample.totalDistance)} · +{formatElevation(sample.elevationGain ?? 0, units)}
                 </div>
                 <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                   <span>{sample.turnCues.length} turns</span> · <span>Tap to load & test</span>
