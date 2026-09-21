@@ -25,6 +25,8 @@ import {
   vibrateOffTrail,
   vibrateTurnCue,
 } from './utils/audioVibrate';
+import { speak, unlockSpeech } from './utils/voice';
+import { formatShortDistance } from './utils/units';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useHeading } from './hooks/useHeading';
 import { TrailListScreen } from './components/TrailListScreen';
@@ -76,6 +78,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   offTrailClearThreshold: 20, // 20 meters as requested
   beepEnabled: true,
   vibrateEnabled: true,
+  voiceEnabled: true,
   lookAheadDistance: 40, // 40 meters ahead along trail
   highContrastMode: 'dark-slate',
   units: 'imperial', // miles & feet by default; metric available in settings
@@ -538,6 +541,7 @@ export default function App() {
   // Toggle Navigation (Start / Stop)
   const handleToggleNavigation = () => {
     unlockAudio();
+    unlockSpeech();
     if (!isNavigating) {
       setIsNavigating(true);
       navStartTimeRef.current = Date.now() - elapsedSeconds * 1000;
@@ -978,10 +982,6 @@ export default function App() {
       }
     }
 
-    if (refIdx > 5) {
-      history.splice(0, refIdx - 2);
-    }
-
     if (refIdx >= 0) {
       const refFix = history[refIdx];
       const latestFix = history[history.length - 1];
@@ -994,6 +994,13 @@ export default function App() {
         setIsReverseMode(false);
         setTurnAroundNotice(null);
       }
+    }
+
+    // Trim old history after using refIdx against the untrimmed array above -
+    // splicing first would shift every later index, making refIdx point past
+    // the end of the shrunk array (a real crash: "reading 'distAlong' of undefined").
+    if (refIdx > 5) {
+      history.splice(0, refIdx - 2);
     }
   }, [isNavigating, userPosition, projectedPosition, activeTrail, isReverseMode]);
 
@@ -1127,6 +1134,9 @@ export default function App() {
             if (settings.beepEnabled && !isAlertAudioMuted) {
               playOffTrailBeep();
             }
+            if (settings.voiceEnabled && !isAlertAudioMuted) {
+              speak('Off trail. Please return to the trail.');
+            }
           }
         }
       }
@@ -1152,6 +1162,7 @@ export default function App() {
     settings.offTrailClearThreshold,
     settings.vibrateEnabled,
     settings.beepEnabled,
+    settings.voiceEnabled,
     isAlertAudioMuted,
     isOffTrailAlertActive,
   ]);
@@ -1308,6 +1319,9 @@ export default function App() {
         if (settings.beepEnabled) {
           playTurnChime();
         }
+        if (settings.voiceEnabled) {
+          speak(`${nextTurnCue.description} in ${formatShortDistance(distanceToNextTurn, settings.units)}`);
+        }
       }
     }
 
@@ -1322,9 +1336,20 @@ export default function App() {
         if (settings.beepEnabled) {
           playTurnChime();
         }
+        if (settings.voiceEnabled) {
+          speak(`${nextTurnCue.description} now`);
+        }
       }
     }
-  }, [isNavigating, nextTurnCue, distanceToNextTurn, settings.vibrateEnabled, settings.beepEnabled]);
+  }, [
+    isNavigating,
+    nextTurnCue,
+    distanceToNextTurn,
+    settings.vibrateEnabled,
+    settings.beepEnabled,
+    settings.voiceEnabled,
+    settings.units,
+  ]);
 
   // Arrival detection within 25 m of the end with finish summary (time, distance, gain)
   useEffect(() => {
@@ -1371,6 +1396,9 @@ export default function App() {
       hasArrivedRef.current = true;
       playArrivalFanfare();
       vibrateArrival();
+      if (settings.voiceEnabled) {
+        speak('Congratulations! You have reached the end of the trail.');
+      }
 
       // Report the distance actually walked (breadcrumbs), not the position difference along the trail
       const totalHikeDistance =
@@ -1395,7 +1423,7 @@ export default function App() {
       clearActiveSessionFromDB().catch(console.warn);
       setResumableSession(null);
     }
-  }, [isNavigating, activeTrail, projectedPosition, effectiveDistanceRemaining, userPosition, elapsedSeconds, isReverseMode, distanceActuallyWalked]);
+  }, [isNavigating, activeTrail, projectedPosition, effectiveDistanceRemaining, userPosition, elapsedSeconds, isReverseMode, distanceActuallyWalked, settings.voiceEnabled]);
 
   // Simulation test helper: Jump to next turn (positioned at 110m so both 100m and 30m warnings trigger)
   const handleJumpToNextTurn = useCallback(() => {
@@ -1662,6 +1690,7 @@ export default function App() {
             id="toggle-simulation-mode-btn"
             onClick={() => {
               unlockAudio();
+              unlockSpeech();
               setIsSimulationMode(prev => !prev);
               if (!isSimulationMode) {
                 setIsSimulatingWalk(true);
@@ -1910,17 +1939,20 @@ export default function App() {
               isSimulating={isSimulatingWalk}
               onToggleSimulation={() => {
                 unlockAudio();
+                unlockSpeech();
                 setIsSimulatingWalk(prev => !prev);
               }}
               speedKmh={simSpeedKmh}
               onChangeSpeed={setSimSpeedKmh}
               onDriftOffTrail={() => {
                 unlockAudio();
+                unlockSpeech();
                 setIsDriftingOffTrail(true);
               }}
               onReturnToTrail={() => setIsDriftingOffTrail(false)}
               onJumpToNextTurn={() => {
                 unlockAudio();
+                unlockSpeech();
                 handleJumpToNextTurn();
               }}
               onJumpToEnd={handleJumpToFinish}

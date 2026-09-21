@@ -88,6 +88,7 @@ export interface AppSettings {
   offTrailClearThreshold: number; // Default 20 meters
   beepEnabled: boolean;
   vibrateEnabled: boolean;
+  voiceEnabled: boolean;
   lookAheadDistance: number; // Default 40 meters
   highContrastMode: 'dark-slate' | 'sunlight-bright';
   units: 'imperial' | 'metric'; // Display units; internal math stays in meters
