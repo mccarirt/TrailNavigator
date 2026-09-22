@@ -14,7 +14,8 @@ import {
   Moon,
   AlertCircle,
   Play,
-  Repeat
+  Repeat,
+  Footprints
 } from 'lucide-react';
 import { PWAInstallButton } from './PWAInstallButton';
 import { Units, formatDistance, formatElevation } from '../utils/units';
@@ -36,6 +37,7 @@ interface TrailListScreenProps {
   onDiscardSession?: () => void;
   units?: Units;
   onChangeUnits?: (units: Units) => void;
+  onStartFreeHike?: () => void;
 }
 
 export const TrailListScreen: React.FC<TrailListScreenProps> = ({
@@ -51,6 +53,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
   onDiscardSession,
   units = 'imperial',
   onChangeUnits,
+  onStartFreeHike,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -267,6 +270,24 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
             Choose File
           </button>
         </div>
+
+        {/* Free Hike: no planned route, just record wherever you go */}
+        {onStartFreeHike && (
+          <button
+            id="start-free-hike-btn"
+            type="button"
+            onClick={onStartFreeHike}
+            className="w-full p-4 rounded-[var(--radius-lg)] border flex items-center gap-3 text-left transition active:scale-[0.99] bg-[var(--surface)] border-[var(--border-color)] hover:border-[var(--accent-2)]"
+          >
+            <div className="w-11 h-11 rounded-[var(--radius-md)] bg-[var(--accent-2)] text-white flex items-center justify-center shrink-0 shadow-md">
+              <Footprints className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="font-extrabold text-sm">Start a Free Hike</div>
+              <div className="text-xs text-[var(--text-secondary)]">No trail needed — just track where you go, then save or export it</div>
+            </div>
+          </button>
+        )}
 
         {/* Saved Trails Section */}
         <div>

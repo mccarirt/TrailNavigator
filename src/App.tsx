@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppSettings, ProjectedPosition, Trail, TurnCue, UserPosition, BreadcrumbPoint } from './types';
-import { generateSampleTrails } from './utils/gpxParser';
+import { generateSampleTrails, computeElevationGainLoss, createTrailFromBreadcrumbs } from './utils/gpxParser';
 import {
   calculateBearing,
   computeNavigationTarget,
@@ -104,6 +104,8 @@ export default function App() {
 
   // Active Selected Trail
   const [activeTrail, setActiveTrail] = useState<Trail | null>(null);
+  // Free Hike: no planned trail, just recording wherever you go
+  const [isFreeHike, setIsFreeHike] = useState(false);
 
   // Settings
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -346,6 +348,19 @@ export default function App() {
     }
   };
 
+  // Turn a recorded Free Hike into a real, repeatable trail (auto-generated turn cues,
+  // same pipeline as uploading a GPX file) and save it alongside the other saved trails.
+  const handleSaveFreeHikeAsTrail = () => {
+    try {
+      const name = `Free Hike ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+      const trail = createTrailFromBreadcrumbs(breadcrumbSegmentsRef.current, name);
+      handleSaveTrail(trail);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Not enough recorded points to save as a trail';
+      showErrorToast(msg);
+    }
+  };
+
   // Delete Trail from IndexedDB
   const handleDeleteTrail = async (trailId: string) => {
     try {
@@ -481,6 +496,45 @@ export default function App() {
     }
   };
 
+  // Start a Free Hike: no planned trail, just record wherever you go
+  const handleStartFreeHike = () => {
+    setActiveTrail(null);
+    setIsFreeHike(true);
+    setCurrentScreen('navigate');
+    setIsDriftingOffTrail(false);
+    warned100mTurnsRef.current.clear();
+    warned30mTurnsRef.current.clear();
+    hasArrivedRef.current = false;
+    setFinishSummary(null);
+    offTrailCountRef.current = 0;
+    lastDistanceAlongRef.current = null;
+    navStartDistanceRef.current = null;
+    lastProcessedTimestampRef.current = null;
+    lastAlertFeedbackTimeRef.current = 0;
+    alertDismissedAtRef.current = null;
+    hasBeenWithinClearThresholdSinceDismissRef.current = true;
+    setIsOffTrailAlertActive(false);
+    setElapsedSeconds(0);
+    setBreadcrumbSegments([]);
+    breadcrumbSegmentsRef.current = [];
+    progressHistoryRef.current = [];
+    currentLegRef.current = 'outbound';
+    roundTripStateRef.current = createRoundTripState();
+    lastConfidentBearingRef.current = undefined;
+    projectionCacheRef.current = null;
+    maxDistFromStartRef.current = 0;
+    acceptedFixesRef.current = [];
+    reverseProgressFixesRef.current = [];
+    setIsReverseMode(false);
+    setTurnAroundNotice(null);
+    setSimWalkingDirection(1);
+    setSmoothedPaceSecPerKm(null);
+    setEstimatedTimeRemainingSec(null);
+    setUserPosition(null);
+    setSimCumDistance(0);
+    setGpsState('acquiring');
+  };
+
   // Reverse Trail Direction
   const handleReverseTrail = (trailToReverse?: Trail) => {
     const target = trailToReverse || activeTrail;
@@ -604,6 +658,19 @@ export default function App() {
       progressHistoryRef.current = [];
       clearActiveSessionFromDB().catch(console.warn);
       setResumableSession(null);
+
+      // Free hikes have no trail end to auto-detect arrival at, so show the finish
+      // summary here instead, as long as something was actually recorded.
+      if (isFreeHike && !hasArrivedRef.current && (distanceActuallyWalked > 0 || elapsedSecondsRef.current > 0)) {
+        hasArrivedRef.current = true;
+        const { gain } = computeElevationGainLoss(breadcrumbSegmentsRef.current);
+        setFinishSummary({
+          isOpen: true,
+          time: elapsedSecondsRef.current,
+          distance: distanceActuallyWalked,
+          gain,
+        });
+      }
     }
   };
 
@@ -787,6 +854,10 @@ export default function App() {
       lon: userPosition.lon,
       timestamp: userPosition.timestamp,
       accuracy: acc,
+      ele:
+        userPosition.altitude !== null && userPosition.altitude !== undefined && !isNaN(userPosition.altitude)
+          ? userPosition.altitude
+          : undefined,
     };
 
     if (lastPt) {
@@ -1559,7 +1630,7 @@ export default function App() {
   };
 
   // Screen 1: Trail List
-  if (currentScreen === 'list' || !activeTrail) {
+  if (currentScreen === 'list' || (!activeTrail && !isFreeHike)) {
     return (
       <>
         {renderErrorToast()}
@@ -1584,6 +1655,7 @@ export default function App() {
           }
           onResumeHike={handleResumeHike}
           onDiscardSession={handleDiscardSession}
+          onStartFreeHike={handleStartFreeHike}
         />
       </>
     );
@@ -1608,6 +1680,7 @@ export default function App() {
             onClick={() => {
               setIsNavigating(false);
               setIsSimulatingWalk(false);
+              setIsFreeHike(false);
               setCurrentScreen('list');
             }}
             className="p-2 rounded-[var(--radius-sm)] flex items-center gap-1 font-bold text-xs uppercase tracking-wider transition active:scale-95 bg-[var(--surface-2)] hover:opacity-80 text-[var(--text)]"
@@ -1618,7 +1691,7 @@ export default function App() {
           </button>
 
           <h1 className="text-sm sm:text-base font-bold tracking-tight truncate max-w-[150px] sm:max-w-xs font-[family-name:var(--font-display)]">
-            {activeTrail.name}
+            {isFreeHike ? 'Free Hike' : activeTrail?.name}
           </h1>
         </div>
 
@@ -1642,7 +1715,8 @@ export default function App() {
             </span>
           </button>
 
-          {/* Toggle Compass/Turn Panel Button */}
+          {/* Toggle Compass/Turn Panel Button (not applicable without a planned trail) */}
+          {!isFreeHike && (
           <button
             id="toggle-compass-panel-btn"
             onClick={() => setIsCompassVisible(prev => !prev)}
@@ -1656,8 +1730,10 @@ export default function App() {
           >
             <Compass className="w-4 h-4" />
           </button>
+          )}
 
-          {/* Manual Reverse Mode Toggle: "Head back to start" / "Continue to end" */}
+          {/* Manual Reverse Mode Toggle: "Head back to start" / "Continue to end" (not applicable without a planned trail) */}
+          {!isFreeHike && (
           <button
             id="toggle-reverse-mode-btn"
             onClick={() => {
@@ -1684,8 +1760,10 @@ export default function App() {
               {isReverseMode ? 'Continue to end' : 'Head back to start'}
             </span>
           </button>
+          )}
 
-          {/* Desk Test Mode Toggle */}
+          {/* Desk Test Mode Toggle (walks a simulated position along the trail - not applicable without one) */}
+          {!isFreeHike && (
           <button
             id="toggle-simulation-mode-btn"
             onClick={() => {
@@ -1712,6 +1790,7 @@ export default function App() {
             <FlaskConical className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Test</span>
           </button>
+          )}
 
           {/* Theme Toggle */}
           <button
@@ -1849,9 +1928,9 @@ export default function App() {
           isReverseMode={isReverseMode}
         />
 
-        {/* 1. Slidable Compass & Guidance Header (Slides down from top when focused) */}
+        {/* 1. Slidable Compass & Guidance Header (Slides down from top when focused; not applicable to a Free Hike) */}
         <AnimatePresence>
-          {isCompassVisible && (
+          {isCompassVisible && !isFreeHike && (
             <motion.div
               initial={{ y: -80, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -1901,6 +1980,7 @@ export default function App() {
                 isReverseMode={isReverseMode}
                 distanceWalked={distanceActuallyWalked}
                 units={settings.units}
+                freeHike={isFreeHike}
                 onClose={() => setIsStatsVisible(false)}
               />
             </motion.div>
@@ -1923,9 +2003,13 @@ export default function App() {
               <span className="text-[var(--border-color)]">|</span>
               <div className="flex items-center gap-1 text-[var(--accent-2)] font-mono">
                 <span className="text-[10px] text-[var(--text-secondary)] font-sans font-bold">
-                  {isReverseMode ? 'TO START' : 'LEFT'}
+                  {isFreeHike ? 'DIST' : isReverseMode ? 'TO START' : 'LEFT'}
                 </span>
-                <span>{formatTimeRemaining(estimatedTimeRemainingSec, effectiveDistanceRemaining)}</span>
+                <span>
+                  {isFreeHike
+                    ? formatShortDistance(distanceActuallyWalked, settings.units)
+                    : formatTimeRemaining(estimatedTimeRemainingSec, effectiveDistanceRemaining)}
+                </span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-[var(--text-secondary)] ml-0.5" />
             </button>
@@ -1983,12 +2067,12 @@ export default function App() {
             {isNavigating ? (
               <>
                 <Square className="w-5 h-5 fill-current" />
-                Stop Navigation
+                {isFreeHike ? 'Stop Hike' : 'Stop Navigation'}
               </>
             ) : (
               <>
                 <Play className="w-5 h-5 fill-current" />
-                Start Navigation
+                {isFreeHike ? 'Start Hike' : 'Start Navigation'}
               </>
             )}
           </button>
@@ -2048,29 +2132,36 @@ export default function App() {
         onUpdateSettings={setSettings}
       />
 
-      {/* Finish Summary Modal (Arrival within 25m of trail end) */}
-      {finishSummary && activeTrail && (
+      {/* Finish Summary Modal (Arrival within 25m of trail end, or a Free Hike stopped manually) */}
+      {finishSummary && (activeTrail || isFreeHike) && (
         <FinishSummaryModal
           isOpen={finishSummary.isOpen}
-          trailName={activeTrail.name}
+          trailName={isFreeHike ? 'Free Hike' : activeTrail?.name ?? ''}
           totalElapsedSeconds={finishSummary.time}
           totalDistanceMeters={finishSummary.distance}
           elevationGainMeters={finishSummary.gain}
           highContrastMode={settings.highContrastMode}
           breadcrumbs={breadcrumbSegments}
           units={settings.units}
+          freeHike={isFreeHike}
+          onSaveAsTrail={isFreeHike ? handleSaveFreeHikeAsTrail : undefined}
           onClose={() => setFinishSummary(null)}
           onBackToTrails={() => {
             setFinishSummary(null);
             setBreadcrumbSegments([]);
             breadcrumbSegmentsRef.current = [];
+            setIsFreeHike(false);
             setCurrentScreen('list');
           }}
-          onReverseTrail={() => {
-            setFinishSummary(null);
-            handleReverseTrail();
-            handleToggleNavigation();
-          }}
+          onReverseTrail={
+            isFreeHike
+              ? undefined
+              : () => {
+                  setFinishSummary(null);
+                  handleReverseTrail();
+                  handleToggleNavigation();
+                }
+          }
         />
       )}
     </div>

@@ -11,6 +11,7 @@ export interface BreadcrumbPoint {
   lon: number;
   timestamp: number;
   accuracy: number;
+  ele?: number; // Elevation in meters, when the GPS fix reports one
 }
 
 export type TurnType =
