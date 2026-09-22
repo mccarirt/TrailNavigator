@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoPoint, ProjectedPosition, Trail, TurnCue, UserPosition, BreadcrumbPoint } from '../types';
-import { Crosshair, Maximize2, ZoomIn, ZoomOut, Route } from 'lucide-react';
+import { Crosshair, Maximize2, Route } from 'lucide-react';
 import { Units, formatElevation } from '../utils/units';
 import { calculateBearing, getPointAtDistance, haversineDistance } from '../utils/geo';
 
@@ -19,6 +19,7 @@ interface TrailMapProps {
   breadcrumbs?: BreadcrumbPoint[][];
   units?: Units;
   isReverseMode?: boolean;
+  bottomOffset?: number;
 }
 
 export const TrailMap: React.FC<TrailMapProps> = ({
@@ -35,6 +36,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   breadcrumbs = [],
   units = 'imperial',
   isReverseMode = false,
+  bottomOffset = 72,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -58,11 +60,8 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   // Layers
   const trailPolylineOutlineRef = useRef<L.Polyline | null>(null);
   const trailPolylineCoreRef = useRef<L.Polyline | null>(null);
-  const myRouteCanvasRef = useRef<L.Canvas | null>(null);
+  const progressPolylineGroupRef = useRef<L.LayerGroup | null>(null);
   const myRouteGroupRef = useRef<L.LayerGroup | null>(null);
-  const myRoutePolylinesRef = useRef<L.Polyline[]>([]);
-  const lastRenderedSegCountRef = useRef<number>(0);
-  const lastRenderedPtCountRef = useRef<number>(0);
 
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
@@ -74,10 +73,8 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   const startFinishGroupRef = useRef<L.LayerGroup | null>(null);
 
   const isDayMode = highContrastMode === 'sunlight-bright';
-  // Canvas-rendered layers (the live "My Route" breadcrumb) can't resolve CSS custom
-  // properties, since canvas 2D color parsing doesn't go through the CSS cascade — so that
-  // one color needs a literal hex per theme, matching --accent in src/index.css.
   const myRouteColor = isDayMode ? '#D9622B' : '#FFB020';
+  const myRouteHaloColor = isDayMode ? '#FFFFFF' : '#14161C';
 
   // Initialize Map
   useEffect(() => {
@@ -138,50 +135,27 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       trailPolylineCoreRef.current = core;
     }
 
-    // Live "My Route" Layer Group & Canvas Renderer
-    // Drawn above the planned trail line, below markers
-    // Leaflet stacks SVG layers (z-index 200) above canvas layers (z-index 100) within the same
-    // pane, which hid the route under the SVG trail. Give the route its own pane above the overlay pane.
+    // Create custom panes for proper z-stacking:
+    // progressPane (420): completed trail progress line above base trail (400)
+    // myRoutePane (450): recorded GPS breadcrumb track above progress line
+    if (!map.getPane('progressPane')) {
+      const pPane = map.createPane('progressPane');
+      pPane.style.zIndex = '420';
+      pPane.style.pointerEvents = 'none';
+    }
+    const progGroup = L.layerGroup().addTo(map);
+    progressPolylineGroupRef.current = progGroup;
+
     if (!map.getPane('myRoutePane')) {
       const routePane = map.createPane('myRoutePane');
       routePane.style.zIndex = '450';
       routePane.style.pointerEvents = 'none';
     }
-    const routeCanvas = L.canvas({ padding: 0.5, pane: 'myRoutePane' });
-    myRouteCanvasRef.current = routeCanvas;
-
     const routeGroup = L.layerGroup();
     if (showMyRouteRef.current) {
       routeGroup.addTo(map);
     }
     myRouteGroupRef.current = routeGroup;
-
-    // Redraw the whole route from the breadcrumb array after the map is re-initialized
-    myRoutePolylinesRef.current = [];
-    const currentCrumbs = breadcrumbsRef.current;
-    if (currentCrumbs && currentCrumbs.length > 0) {
-      currentCrumbs.forEach(seg => {
-        if (seg.length > 0) {
-          const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
-          const polyline = L.polyline(latLngs, {
-            renderer: routeCanvas,
-            color: myRouteColor,
-            weight: 5,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round',
-          });
-          routeGroup.addLayer(polyline);
-          myRoutePolylinesRef.current.push(polyline);
-        }
-      });
-      lastRenderedSegCountRef.current = currentCrumbs.length;
-      const lastSeg = currentCrumbs[currentCrumbs.length - 1];
-      lastRenderedPtCountRef.current = lastSeg ? lastSeg.length : 0;
-    } else {
-      lastRenderedSegCountRef.current = 0;
-      lastRenderedPtCountRef.current = 0;
-    }
 
     // Start / Finish Markers layer group (drawn by a dedicated effect below, since it
     // needs to redraw whenever the trail is reversed -- same trail.id, new points).
@@ -292,121 +266,141 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       map.remove();
       mapInstanceRef.current = null;
       myRouteGroupRef.current = null;
-      myRouteCanvasRef.current = null;
-      myRoutePolylinesRef.current = [];
-      lastRenderedSegCountRef.current = 0;
-      lastRenderedPtCountRef.current = 0;
+      progressPolylineGroupRef.current = null;
     };
   }, [trail?.id]);
 
-  // Incremental Live Route polyline updates
+  // Update Planned Trail Polyline whenever trail or points change
   useEffect(() => {
-    if (!mapInstanceRef.current || !myRouteGroupRef.current || !myRouteCanvasRef.current) return;
+    if (!mapInstanceRef.current) return;
+    if (trailPolylineOutlineRef.current) {
+      trailPolylineOutlineRef.current.remove();
+      trailPolylineOutlineRef.current = null;
+    }
+    if (trailPolylineCoreRef.current) {
+      trailPolylineCoreRef.current.remove();
+      trailPolylineCoreRef.current = null;
+    }
+
+    if (!trail || trail.points.length === 0) return;
+
+    const polylineSegments =
+      trail.segments && trail.segments.length > 0
+        ? trail.segments.map(seg => seg.map(p => [p.lat, p.lon] as [number, number]))
+        : [trail.points.map(p => [p.lat, p.lon] as [number, number])];
+
+    const outlineColor = isDayMode ? '#14261B' : '#2B2F3A';
+    const coreColor = isDayMode ? '#78887F' : '#4E576B';
+
+    const outline = L.polyline(polylineSegments, {
+      color: outlineColor,
+      weight: 9,
+      opacity: 0.85,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(mapInstanceRef.current);
+    trailPolylineOutlineRef.current = outline;
+
+    const core = L.polyline(polylineSegments, {
+      color: coreColor,
+      weight: 5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(mapInstanceRef.current);
+    trailPolylineCoreRef.current = core;
+  }, [trail?.id, trail?.points, isDayMode]);
+
+  // Update Completed Trail Progress Polyline (The high-visibility navigation line showing progress!)
+  useEffect(() => {
+    if (!progressPolylineGroupRef.current || !mapInstanceRef.current) return;
+    progressPolylineGroupRef.current.clearLayers();
+
+    if (!trail || !projectedPosition || trail.points.length < 2) return;
+
+    const currentDist = projectedPosition.distanceAlongTrail;
+    if (currentDist <= 0) return;
+
+    const completedPts: [number, number][] = [];
+    for (const pt of trail.points) {
+      if ((pt.cumDistance ?? 0) <= currentDist) {
+        completedPts.push([pt.lat, pt.lon]);
+      } else {
+        break;
+      }
+    }
+    completedPts.push([projectedPosition.point.lat, projectedPosition.point.lon]);
+    if (completedPts.length < 2) {
+      completedPts.unshift([trail.points[0].lat, trail.points[0].lon]);
+    }
+
+    const progressGlowColor = isDayMode ? 'rgba(31, 92, 58, 0.4)' : 'rgba(51, 214, 192, 0.4)';
+    const progressColor = isDayMode ? '#1F5C3A' : '#33D6C0';
+
+    // Outer glow
+    L.polyline(completedPts, {
+      pane: 'progressPane',
+      color: progressGlowColor,
+      weight: 12,
+      opacity: 0.7,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(progressPolylineGroupRef.current);
+
+    // Inner bright vivid line
+    L.polyline(completedPts, {
+      pane: 'progressPane',
+      color: progressColor,
+      weight: 6,
+      opacity: 1,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(progressPolylineGroupRef.current);
+  }, [trail, projectedPosition, isDayMode]);
+
+  // Live "My Route" (Breadcrumbs) Polyline updates with SVG in myRoutePane
+  useEffect(() => {
+    if (!mapInstanceRef.current || !myRouteGroupRef.current) return;
+    myRouteGroupRef.current.clearLayers();
+
     const currentCrumbs = breadcrumbs || [];
+    if (!showMyRoute || currentCrumbs.length === 0) return;
 
-    // If empty, clear layers
-    if (currentCrumbs.length === 0) {
-      myRouteGroupRef.current.clearLayers();
-      myRoutePolylinesRef.current = [];
-      lastRenderedSegCountRef.current = 0;
-      lastRenderedPtCountRef.current = 0;
-      return;
-    }
+    currentCrumbs.forEach(seg => {
+      if (seg.length >= 2) {
+        const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
 
-    // If map was created or layer was empty, draw all segments
-    if (myRoutePolylinesRef.current.length === 0) {
-      currentCrumbs.forEach(seg => {
-        if (seg.length > 0) {
-          const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
-          const polyline = L.polyline(latLngs, {
-            renderer: myRouteCanvasRef.current!,
-            color: myRouteColor,
-            weight: 5,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round',
-          });
-          myRouteGroupRef.current!.addLayer(polyline);
-          myRoutePolylinesRef.current.push(polyline);
-        }
-      });
-      lastRenderedSegCountRef.current = currentCrumbs.length;
-      const lastSeg = currentCrumbs[currentCrumbs.length - 1];
-      lastRenderedPtCountRef.current = lastSeg ? lastSeg.length : 0;
-      return;
-    }
+        // Contrast halo
+        L.polyline(latLngs, {
+          pane: 'myRoutePane',
+          color: myRouteHaloColor,
+          weight: 8,
+          opacity: 0.85,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(myRouteGroupRef.current!);
 
-    // Case 1: Same number of segments -> add new points incrementally using addLatLng
-    if (currentCrumbs.length === lastRenderedSegCountRef.current) {
-      const segIdx = currentCrumbs.length - 1;
-      const seg = currentCrumbs[segIdx];
-      const polyline = myRoutePolylinesRef.current[segIdx];
-      if (polyline && seg) {
-        for (let i = lastRenderedPtCountRef.current; i < seg.length; i++) {
-          polyline.addLatLng([seg[i].lat, seg[i].lon]);
-        }
-        lastRenderedPtCountRef.current = seg.length;
-      }
-      return;
-    }
-
-    // Case 2: New segment(s) started -> complete prior segment, then create new polylines
-    if (currentCrumbs.length > lastRenderedSegCountRef.current) {
-      const prevIdx = lastRenderedSegCountRef.current - 1;
-      if (prevIdx >= 0 && prevIdx < myRoutePolylinesRef.current.length) {
-        const prevSeg = currentCrumbs[prevIdx];
-        const prevPolyline = myRoutePolylinesRef.current[prevIdx];
-        if (prevPolyline && prevSeg) {
-          for (let i = lastRenderedPtCountRef.current; i < prevSeg.length; i++) {
-            prevPolyline.addLatLng([prevSeg[i].lat, prevSeg[i].lon]);
-          }
-        }
-      }
-
-      for (let s = lastRenderedSegCountRef.current; s < currentCrumbs.length; s++) {
-        const newSeg = currentCrumbs[s];
-        const latLngs = newSeg.map(pt => [pt.lat, pt.lon] as [number, number]);
-        const polyline = L.polyline(latLngs, {
-          renderer: myRouteCanvasRef.current!,
+        // Vivid track core
+        L.polyline(latLngs, {
+          pane: 'myRoutePane',
           color: myRouteColor,
           weight: 5,
           opacity: 0.95,
           lineCap: 'round',
           lineJoin: 'round',
-        });
-        myRouteGroupRef.current.addLayer(polyline);
-        myRoutePolylinesRef.current.push(polyline);
+        }).addTo(myRouteGroupRef.current!);
+      } else if (seg.length === 1) {
+        L.circleMarker([seg[0].lat, seg[0].lon], {
+          pane: 'myRoutePane',
+          radius: 4,
+          color: myRouteHaloColor,
+          fillColor: myRouteColor,
+          fillOpacity: 1,
+          weight: 2,
+        }).addTo(myRouteGroupRef.current!);
       }
-      lastRenderedSegCountRef.current = currentCrumbs.length;
-      const lastSeg = currentCrumbs[currentCrumbs.length - 1];
-      lastRenderedPtCountRef.current = lastSeg ? lastSeg.length : 0;
-      return;
-    }
-
-    // Case 3: Breadcrumb segments array shrank (e.g. restart/clear) -> clear and redraw
-    if (currentCrumbs.length < lastRenderedSegCountRef.current) {
-      myRouteGroupRef.current.clearLayers();
-      myRoutePolylinesRef.current = [];
-      currentCrumbs.forEach(seg => {
-        if (seg.length > 0) {
-          const latLngs = seg.map(pt => [pt.lat, pt.lon] as [number, number]);
-          const polyline = L.polyline(latLngs, {
-            renderer: myRouteCanvasRef.current!,
-            color: myRouteColor,
-            weight: 5,
-            opacity: 0.95,
-            lineCap: 'round',
-            lineJoin: 'round',
-          });
-          myRouteGroupRef.current!.addLayer(polyline);
-          myRoutePolylinesRef.current.push(polyline);
-        }
-      });
-      lastRenderedSegCountRef.current = currentCrumbs.length;
-      const lastSeg = currentCrumbs[currentCrumbs.length - 1];
-      lastRenderedPtCountRef.current = lastSeg ? lastSeg.length : 0;
-    }
-  }, [breadcrumbs, myRouteColor]);
+    });
+  }, [breadcrumbs, showMyRoute, myRouteColor, myRouteHaloColor]);
 
   // Toggle My Route visibility
   useEffect(() => {
@@ -702,15 +696,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     }
   }, [userPosition, projectedPosition, targetPoint, heading, followMe]);
 
-  // Handle Zoom In / Out / Fit
-  const handleZoomIn = () => {
-    mapInstanceRef.current?.zoomIn();
-  };
-
-  const handleZoomOut = () => {
-    mapInstanceRef.current?.zoomOut();
-  };
-
+  // Handle Fit Trail
   const handleFitTrail = () => {
     if (!mapInstanceRef.current) return;
     if (trail && trail.points.length > 0) {
@@ -735,13 +721,17 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         className="w-full h-full"
       />
 
-      {/* Map Control Overlays */}
-      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-1.5">
+      {/* Map Control Overlays - Positioned in the lower right, dynamically shifting up when drawer expands */}
+      <div
+        id="map-controls-group"
+        className="absolute right-3 z-[400] flex flex-col gap-2 transition-all duration-300 ease-out"
+        style={{ bottom: `${bottomOffset}px` }}
+      >
         {/* Follow Me Button */}
         <button
           id="follow-me-toggle-btn"
           onClick={onToggleFollowMe}
-          className="w-8 h-8 rounded-[var(--radius-sm)] font-bold shadow-md border transition active:scale-90 flex items-center justify-center"
+          className="w-10 h-10 rounded-[var(--radius-sm)] font-bold shadow-lg border transition active:scale-90 flex items-center justify-center pointer-events-auto"
           style={
             followMe
               ? { background: 'var(--info)', color: '#fff', borderColor: 'var(--info)' }
@@ -750,25 +740,25 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           title={followMe ? 'Following your location (tap to pause)' : 'Follow my location'}
           aria-label={followMe ? 'Disable follow me' : 'Enable follow me'}
         >
-          <Crosshair className="w-4 h-4" />
+          <Crosshair className="w-5 h-5" />
         </button>
 
         {/* Fit Trail Bounds */}
         <button
           id="fit-trail-bounds-btn"
           onClick={handleFitTrail}
-          className="w-8 h-8 rounded-[var(--radius-sm)] shadow-md border transition active:scale-90 flex items-center justify-center bg-[var(--surface)] text-[var(--text)] border-[var(--border-color)] hover:opacity-90"
+          className="w-10 h-10 rounded-[var(--radius-sm)] shadow-lg border transition active:scale-90 flex items-center justify-center bg-[var(--surface)] text-[var(--text)] border-[var(--border-color)] hover:opacity-90 pointer-events-auto"
           title="Fit whole trail in view"
           aria-label="Fit whole trail to view"
         >
-          <Maximize2 className="w-3.5 h-3.5" />
+          <Maximize2 className="w-4 h-4" />
         </button>
 
         {/* Toggle My Route Button */}
         <button
           id="toggle-my-route-btn"
           onClick={() => setShowMyRoute(prev => !prev)}
-          className="w-8 h-8 rounded-[var(--radius-sm)] shadow-md border transition active:scale-90 flex items-center justify-center"
+          className="w-10 h-10 rounded-[var(--radius-sm)] shadow-lg border transition active:scale-90 flex items-center justify-center pointer-events-auto"
           style={
             showMyRoute
               ? { background: 'var(--accent)', color: '#fff', borderColor: 'var(--accent)' }
@@ -777,33 +767,8 @@ export const TrailMap: React.FC<TrailMapProps> = ({
           title={showMyRoute ? 'Hide my route' : 'Show my route'}
           aria-label={showMyRoute ? 'Hide my route' : 'Show my route'}
         >
-          <Route className="w-4 h-4" />
+          <Route className="w-5 h-5" />
         </button>
-
-        {/* Zoom Controls */}
-        <div
-          className="w-8 flex flex-col rounded-[var(--radius-sm)] overflow-hidden shadow-md border bg-[var(--surface)] border-[var(--border-color)]"
-        >
-          <button
-            id="map-zoom-in-btn"
-            onClick={handleZoomIn}
-            className="w-8 h-7.5 hover:opacity-70 active:scale-90 transition flex items-center justify-center"
-            style={{ borderBottom: '1px solid var(--border-color)' }}
-            title="Zoom in"
-            aria-label="Zoom in"
-          >
-            <ZoomIn className="w-3.5 h-3.5 text-[var(--text)]" />
-          </button>
-          <button
-            id="map-zoom-out-btn"
-            onClick={handleZoomOut}
-            className="w-8 h-7.5 hover:opacity-70 active:scale-90 transition flex items-center justify-center"
-            title="Zoom out"
-            aria-label="Zoom out"
-          >
-            <ZoomOut className="w-3.5 h-3.5 text-[var(--text)]" />
-          </button>
-        </div>
       </div>
     </div>
   );

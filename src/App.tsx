@@ -30,8 +30,7 @@ import { formatShortDistance } from './utils/units';
 import { useWakeLock } from './hooks/useWakeLock';
 import { useHeading } from './hooks/useHeading';
 import { TrailListScreen } from './components/TrailListScreen';
-import { CompassHeader } from './components/CompassHeader';
-import { StatsBar, formatTotalTime, formatTimeRemaining } from './components/StatsBar';
+import { NavigationBottomDrawer } from './components/NavigationBottomDrawer';
 import { TrailMap } from './components/TrailMap';
 import { OffTrailAlert } from './components/OffTrailAlert';
 import { SettingsModal } from './components/SettingsModal';
@@ -50,8 +49,6 @@ import {
   Moon,
   Volume2,
   VolumeX,
-  Activity,
-  Compass,
   AlertTriangle,
   AlertCircle,
   Clock,
@@ -149,9 +146,10 @@ export default function App() {
   } | null>(null);
   const hasArrivedRef = useRef<boolean>(false);
 
-  // Map & HUD panel slide states (off screen by default to give map maximum space)
-  const [isStatsVisible, setIsStatsVisible] = useState(false);
-  const [isCompassVisible, setIsCompassVisible] = useState(false);
+  // Bottom drawer state (swipe up for compass & trip stats, dynamically pushing map controls up)
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [drawerHeight, setDrawerHeight] = useState(58);
+  const [drawerTab, setDrawerTab] = useState<'all' | 'compass' | 'stats'>('all');
 
   // Live User Position
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
@@ -851,15 +849,15 @@ export default function App() {
 
   // Live "My Route" Breadcrumbs Recording
   // Keeps breadcrumb array of accepted GPS/simulation fixes:
-  // - Accept only if accuracy <= 50m and >= 5m from last recorded point
+  // - Accept only if accuracy <= 80m and >= 4m from last recorded point
   // - Split into new segment if > 60s between fixes or jump > 100m
-  // - Active for real navigation and preview simulation
+  // - Active for real navigation, free hike, and preview simulation
   useEffect(() => {
     if (!userPosition) return;
-    if (!isNavigating && !isSimulatingWalk) return;
+    if (!isNavigating && !isSimulatingWalk && !isFreeHike) return;
 
     const acc = userPosition.accuracy;
-    if (acc === null || acc === undefined || isNaN(acc) || acc > 50) {
+    if (acc === null || acc === undefined || isNaN(acc) || acc > 80) {
       return;
     }
 
@@ -880,7 +878,7 @@ export default function App() {
 
     if (lastPt) {
       const dist = haversineDistance(lastPt.lat, lastPt.lon, userPosition.lat, userPosition.lon);
-      if (dist < 5) {
+      if (dist < 4) {
         return;
       }
 
@@ -1709,7 +1707,7 @@ export default function App() {
   return (
     <div
       id="trail-navigation-screen"
-      className="h-screen w-screen flex flex-col overflow-hidden select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
+      className="h-[100dvh] h-full w-full flex flex-col overflow-hidden select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
     >
       {renderErrorToast()}
       {renderInfoToast()}
@@ -1741,41 +1739,6 @@ export default function App() {
 
         {/* Action icons */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {/* Toggle Stats Panel Button */}
-          <button
-            id="toggle-stats-panel-btn"
-            onClick={() => setIsStatsVisible(prev => !prev)}
-            className={`px-2.5 py-1.5 rounded-[var(--radius-sm)] border text-xs font-extrabold uppercase flex items-center gap-1 transition active:scale-95 ${
-              isStatsVisible
-                ? 'bg-[var(--accent)] text-white border-[var(--accent)] shadow-sm'
-                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
-            }`}
-            title={isStatsVisible ? 'Hide time and stats' : 'Show time and trip stats'}
-            aria-label="Toggle stats and time"
-          >
-            <Activity className="w-3.5 h-3.5" />
-            <span className="text-xs">
-              {formatTotalTime(elapsedSeconds)}
-            </span>
-          </button>
-
-          {/* Toggle Compass/Turn Panel Button (not applicable without a planned trail) */}
-          {!isFreeHike && (
-          <button
-            id="toggle-compass-panel-btn"
-            onClick={() => setIsCompassVisible(prev => !prev)}
-            className={`p-2 rounded-[var(--radius-sm)] border transition active:scale-95 ${
-              isCompassVisible
-                ? 'bg-[var(--accent-2)] text-white border-[var(--accent-2)] shadow-sm'
-                : 'bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity'
-            }`}
-            title={isCompassVisible ? 'Hide compass guidance' : 'Show compass guidance'}
-            aria-label="Toggle compass guidance"
-          >
-            <Compass className="w-4 h-4" />
-          </button>
-          )}
-
           {/* Reverse Route Direction Button: permanently flips which end of the trail is the start (only meaningful for a real, saved trail) */}
           {!isFreeHike && activeTrail && (
           <button
@@ -1968,7 +1931,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Full-bleed Trail Map */}
+        {/* Full-bleed Trail Map with dynamic bottom offset for controls */}
         <TrailMap
           trail={activeTrail}
           userPosition={userPosition}
@@ -1983,95 +1946,40 @@ export default function App() {
           breadcrumbs={breadcrumbSegments}
           units={settings.units}
           isReverseMode={isReverseMode}
+          bottomOffset={drawerHeight + 8}
         />
 
-        {/* 1. Slidable Compass & Guidance Header (Slides down from top when focused; not applicable to a Free Hike) */}
-        <AnimatePresence>
-          {isCompassVisible && !isFreeHike && (
-            <motion.div
-              initial={{ y: -80, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -80, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute top-0 left-0 right-0 z-[450] shadow-2xl pointer-events-auto"
-            >
-              <CompassHeader
-                arrowAngle={arrowAngle}
-                directionHeadline={directionText.headline}
-                directionSubline={directionText.subline}
-                distanceToTarget={distanceToTarget}
-                nextTurnCue={nextTurnCue}
-                distanceToNextTurn={distanceToNextTurn}
-                isOffTrail={isOffTrail}
-                offTrailDistance={projectedPosition?.distanceFromTrail ?? 0}
-                headingSource={headingSource}
-                needsSensorPermission={needsSensorPermission}
-                onRequestPermission={requestCompassPermission}
-                highContrastMode={settings.highContrastMode}
-                onClose={() => setIsCompassVisible(false)}
-                units={settings.units}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* 2. Slidable Stats & Time Panel (Slides down below compass or up from bottom when focused) */}
-        <AnimatePresence>
-          {isStatsVisible && (
-            <motion.div
-              initial={{ y: -50, opacity: 0 }}
-              animate={{ y: isCompassVisible ? 120 : 0, opacity: 1 }}
-              exit={{ y: -50, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="absolute top-0 left-0 right-0 z-[440] shadow-2xl pointer-events-auto"
-            >
-              <StatsBar
-                totalElapsedSeconds={elapsedSeconds}
-                paceSecondsPerKm={smoothedPaceSecPerKm}
-                estimatedTimeRemainingSeconds={estimatedTimeRemainingSec}
-                distanceRemaining={effectiveDistanceRemaining}
-                distanceSoFar={projectedPosition?.distanceAlongTrail ?? 0}
-                distanceFromTrail={projectedPosition?.distanceFromTrail ?? 0}
-                offTrailThreshold={settings.offTrailThreshold}
-                highContrastMode={settings.highContrastMode}
-                isReverseMode={isReverseMode}
-                distanceWalked={distanceActuallyWalked}
-                units={settings.units}
-                freeHike={isFreeHike}
-                onClose={() => setIsStatsVisible(false)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Floating Minimal HUD Pill (when panels are off-screen) for one-tap glance and toggle */}
-        {!isStatsVisible && !isCompassVisible && (
-          <div className="absolute top-3 left-3 z-[400] flex items-center gap-1.5 pointer-events-auto">
-            <button
-              id="quick-slide-stats-pill"
-              onClick={() => setIsStatsVisible(true)}
-              className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-xs font-extrabold tracking-tight shadow-lg border backdrop-blur-md transition active:scale-95 bg-[var(--surface)]/95 text-[var(--text)] border-[var(--border-color)] hover:opacity-90"
-              title="Tap to slide stats and time into focus"
-            >
-              <div className="flex items-center gap-1 text-[var(--info)] font-mono">
-                <span className="text-[10px] text-[var(--text-secondary)] font-sans font-bold">TIME</span>
-                <span>{formatTotalTime(elapsedSeconds)}</span>
-              </div>
-              <span className="text-[var(--border-color)]">|</span>
-              <div className="flex items-center gap-1 text-[var(--accent-2)] font-mono">
-                <span className="text-[10px] text-[var(--text-secondary)] font-sans font-bold">
-                  {isFreeHike ? 'DIST' : isReverseMode ? 'TO START' : 'LEFT'}
-                </span>
-                <span>
-                  {isFreeHike
-                    ? formatShortDistance(distanceActuallyWalked, settings.units)
-                    : formatTimeRemaining(estimatedTimeRemainingSec, effectiveDistanceRemaining)}
-                </span>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-[var(--text-secondary)] ml-0.5" />
-            </button>
-          </div>
-        )}
+        {/* Slidable & Swipeable Bottom Drawer for Compass Guidance and Trip Stats */}
+        <NavigationBottomDrawer
+          isOpen={isDrawerOpen}
+          onToggleOpen={() => setIsDrawerOpen(prev => !prev)}
+          isFreeHike={isFreeHike}
+          arrowAngle={arrowAngle}
+          directionHeadline={directionText.headline}
+          directionSubline={directionText.subline}
+          distanceToTarget={distanceToTarget}
+          nextTurnCue={nextTurnCue}
+          distanceToNextTurn={distanceToNextTurn}
+          isOffTrail={isOffTrail}
+          offTrailDistance={projectedPosition?.distanceFromTrail ?? 0}
+          headingSource={headingSource}
+          needsSensorPermission={needsSensorPermission}
+          onRequestPermission={requestCompassPermission}
+          totalElapsedSeconds={elapsedSeconds}
+          paceSecondsPerKm={smoothedPaceSecPerKm}
+          estimatedTimeRemainingSeconds={estimatedTimeRemainingSec}
+          distanceRemaining={effectiveDistanceRemaining}
+          distanceSoFar={projectedPosition?.distanceAlongTrail ?? 0}
+          distanceFromTrail={projectedPosition?.distanceFromTrail ?? 0}
+          offTrailThreshold={settings.offTrailThreshold}
+          distanceActuallyWalked={distanceActuallyWalked}
+          isReverseMode={isReverseMode}
+          highContrastMode={settings.highContrastMode}
+          units={settings.units}
+          activeTab={drawerTab}
+          onTabChange={setDrawerTab}
+          onHeightChange={setDrawerHeight}
+        />
 
         {/* Floating Simulation Controls Drawer (when test mode active) */}
         {isSimulationMode && (

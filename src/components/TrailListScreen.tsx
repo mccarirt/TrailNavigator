@@ -116,7 +116,8 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
   return (
     <div
       id="trail-list-screen"
-      className="min-h-screen flex flex-col select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
+      className="h-full w-full overflow-y-auto overscroll-contain flex flex-col select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
+      style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Header */}
       <header
