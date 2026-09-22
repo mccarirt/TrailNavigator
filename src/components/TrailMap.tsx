@@ -71,6 +71,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   const turnMarkersGroupRef = useRef<L.LayerGroup | null>(null);
   const waypointsGroupRef = useRef<L.LayerGroup | null>(null);
   const directionArrowsGroupRef = useRef<L.LayerGroup | null>(null);
+  const startFinishGroupRef = useRef<L.LayerGroup | null>(null);
 
   const isDayMode = highContrastMode === 'sunlight-bright';
   // Canvas-rendered layers (the live "My Route" breadcrumb) can't resolve CSS custom
@@ -182,49 +183,10 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       lastRenderedPtCountRef.current = 0;
     }
 
-    // Start / Finish Markers. On an out-and-back trail these can land at (or very
-    // near) the same spot, so a single combined marker is used instead of stacking
-    // two circles on top of each other where only the topmost would ever be visible.
-    if (trail && trail.points.length > 0) {
-      const start = trail.points[0];
-      const end = trail.points[trail.points.length - 1];
-      const sameSpot =
-        trail.points.length > 1 && haversineDistance(start.lat, start.lon, end.lat, end.lon) < 20;
-
-      if (sameSpot) {
-        const combinedIcon = L.divIcon({
-          className: 'custom-start-finish-marker',
-          html: `<div style="background:linear-gradient(135deg, var(--accent-2) 50%, var(--danger) 50%);color:white;width:30px;height:30px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;letter-spacing:-0.5px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S/F</div>`,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
-        });
-        L.marker([start.lat, start.lon], { icon: combinedIcon })
-          .bindTooltip('Start & Finish (same location)', { direction: 'top', offset: [0, -15] })
-          .addTo(map);
-      } else {
-        const startIcon = L.divIcon({
-          className: 'custom-start-marker',
-          html: `<div style="background:var(--accent-2);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S</div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
-        });
-        L.marker([start.lat, start.lon], { icon: startIcon })
-          .bindTooltip('Start', { direction: 'top', offset: [0, -12] })
-          .addTo(map);
-
-        if (trail.points.length > 1) {
-          const finishIcon = L.divIcon({
-            className: 'custom-end-marker',
-            html: `<div style="background:var(--danger);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">F</div>`,
-            iconSize: [24, 24],
-            iconAnchor: [12, 12],
-          });
-          L.marker([end.lat, end.lon], { icon: finishIcon })
-            .bindTooltip('Finish', { direction: 'top', offset: [0, -12] })
-            .addTo(map);
-        }
-      }
-    }
+    // Start / Finish Markers layer group (drawn by a dedicated effect below, since it
+    // needs to redraw whenever the trail is reversed -- same trail.id, new points).
+    const startFinishGroup = L.layerGroup().addTo(map);
+    startFinishGroupRef.current = startFinishGroup;
 
     // Turn Cues layer group
     const turnGroup = L.layerGroup().addTo(map);
@@ -539,6 +501,69 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       });
     });
   }, [trail?.id, trail?.waypoints, units]);
+
+  // Start / Finish markers. Redrawn (not just created once) so reversing a trail's
+  // direction -- same trail.id, new points -- actually moves/updates them, including
+  // which end an out-and-back's combined marker points its arrow toward.
+  useEffect(() => {
+    if (!startFinishGroupRef.current) return;
+    startFinishGroupRef.current.clearLayers();
+
+    if (!trail || trail.points.length === 0) return;
+    const start = trail.points[0];
+    const end = trail.points[trail.points.length - 1];
+    const sameSpot =
+      trail.points.length > 1 && haversineDistance(start.lat, start.lon, end.lat, end.lon) < 20;
+
+    if (sameSpot) {
+      // Since start and finish sit at the same point, the only way to show which
+      // direction the trail currently starts in is a small arrow that points the
+      // way you'll walk first -- it flips ~180 degrees when the trail is reversed.
+      const headingRef = trail.points.find(p => (p.cumDistance ?? 0) > 15) || trail.points[1];
+      const initialBearing = calculateBearing(start.lat, start.lon, headingRef.lat, headingRef.lon);
+
+      const combinedIcon = L.divIcon({
+        className: 'custom-start-finish-marker',
+        html: `
+          <div style="position:relative;width:40px;height:40px;">
+            <div style="position:absolute;inset:0;transform:rotate(${initialBearing}deg);">
+              <div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:9px solid var(--text);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></div>
+            </div>
+            <div style="position:absolute;inset:5px;background:linear-gradient(135deg, var(--accent-2) 50%, var(--danger) 50%);color:white;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;letter-spacing:-0.5px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S/F</div>
+          </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+      L.marker([start.lat, start.lon], { icon: combinedIcon })
+        .bindTooltip('Start & Finish (same location) — arrow shows starting direction', {
+          direction: 'top',
+          offset: [0, -20],
+        })
+        .addTo(startFinishGroupRef.current);
+    } else {
+      const startIcon = L.divIcon({
+        className: 'custom-start-marker',
+        html: `<div style="background:var(--accent-2);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">S</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+      L.marker([start.lat, start.lon], { icon: startIcon })
+        .bindTooltip('Start', { direction: 'top', offset: [0, -12] })
+        .addTo(startFinishGroupRef.current);
+
+      if (trail.points.length > 1) {
+        const finishIcon = L.divIcon({
+          className: 'custom-end-marker',
+          html: `<div style="background:var(--danger);color:white;width:24px;height:24px;border-radius:50%;border:3px solid var(--surface);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;box-shadow:0 3px 8px rgba(0,0,0,0.5);">F</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        L.marker([end.lat, end.lon], { icon: finishIcon })
+          .bindTooltip('Finish', { direction: 'top', offset: [0, -12] })
+          .addTo(startFinishGroupRef.current);
+      }
+    }
+  }, [trail?.id, trail?.points]);
 
   // Direction-of-travel arrows along the trail line, so a loop's walking direction is visible
   // on the map itself (not just implied by turn cues). Flips when the hiker reverses direction.
