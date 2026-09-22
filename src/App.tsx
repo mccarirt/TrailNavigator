@@ -1732,6 +1732,19 @@ export default function App() {
           </button>
           )}
 
+          {/* Reverse Route Direction Button: permanently flips which end of the trail is the start (only meaningful for a real, saved trail) */}
+          {!isFreeHike && activeTrail && (
+          <button
+            id="reverse-route-btn"
+            onClick={() => handleReverseTrail()}
+            className="p-2 rounded-[var(--radius-sm)] border bg-[var(--surface)] border-[var(--border-color)] text-[var(--text)] hover:opacity-80 transition-opacity active:scale-95"
+            title="Swap which end of the trail you start from"
+            aria-label="Reverse trail direction"
+          >
+            <Repeat className="w-4 h-4" />
+          </button>
+          )}
+
           {/* Manual Reverse Mode Toggle: "Head back to start" / "Continue to end" (not applicable without a planned trail) */}
           {!isFreeHike && (
           <button

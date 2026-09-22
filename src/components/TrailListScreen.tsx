@@ -349,17 +349,18 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                       className="flex-1 py-3 px-4 rounded-[var(--radius-md)] bg-[var(--accent)] hover:opacity-90 active:scale-98 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
                     >
                       <Navigation className="w-4 h-4" />
-                      Start Navigation
+                      Select This Route
                     </button>
                     {onReverseTrail && (
                       <button
                         id={`reverse-trail-btn-${trail.id}`}
                         onClick={() => onReverseTrail(trail)}
-                        className="p-3 rounded-[var(--radius-md)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--info)] active:scale-95 transition"
-                        title="Reverse direction"
+                        className="py-3 px-3 rounded-[var(--radius-md)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--info)] hover:border-[var(--info)] active:scale-95 transition flex items-center justify-center gap-1.5 font-extrabold text-xs uppercase tracking-wider whitespace-nowrap"
+                        title="Swap which end of the trail you start from"
                         aria-label="Reverse trail direction"
                       >
-                        <Repeat className="w-4 h-4" />
+                        <Repeat className="w-4 h-4 shrink-0" />
+                        Reverse
                       </button>
                     )}
                     <button
