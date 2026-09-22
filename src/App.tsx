@@ -101,6 +101,7 @@ export default function App() {
     trail: Trail;
   } | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [infoToast, setInfoToast] = useState<string | null>(null);
 
   // Active Selected Trail
   const [activeTrail, setActiveTrail] = useState<Trail | null>(null);
@@ -242,12 +243,23 @@ export default function App() {
     setErrorToast(msg);
   }, []);
 
+  const showInfoToast = useCallback((msg: string) => {
+    setInfoToast(msg);
+  }, []);
+
   // Auto-dismiss error toast
   useEffect(() => {
     if (!errorToast) return;
     const timer = setTimeout(() => setErrorToast(null), 6000);
     return () => clearTimeout(timer);
   }, [errorToast]);
+
+  // Auto-dismiss info toast
+  useEffect(() => {
+    if (!infoToast) return;
+    const timer = setTimeout(() => setInfoToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [infoToast]);
 
   // Load saved trails and check for resumable session from IndexedDB on initial mount
   useEffect(() => {
@@ -541,6 +553,12 @@ export default function App() {
     if (!target || target.points.length < 2) return;
 
     const reversed = reverseTrail(target);
+
+    showInfoToast(
+      reversed.name.endsWith(' (Reversed)')
+        ? 'Direction reversed — now starting from the other end'
+        : 'Direction reversed — back to the original start'
+    );
 
     // If active trail is being reversed
     if (activeTrail && target.id === activeTrail.id) {
@@ -1629,11 +1647,36 @@ export default function App() {
     );
   };
 
+  const renderInfoToast = () => {
+    if (!infoToast) return null;
+    return (
+      <div
+        id="app-info-toast"
+        role="status"
+        className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] max-w-md w-[calc(100%-2rem)] p-3.5 rounded-[var(--radius-sm)] bg-[var(--accent)] text-white shadow-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3"
+      >
+        <div className="flex items-center gap-2.5 font-bold text-xs sm:text-sm">
+          <Repeat className="w-5 h-5 shrink-0 text-white" />
+          <span>{infoToast}</span>
+        </div>
+        <button
+          id="close-info-toast-btn"
+          onClick={() => setInfoToast(null)}
+          className="p-1 rounded-lg hover:bg-white/20 transition shrink-0"
+          aria-label="Dismiss"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  };
+
   // Screen 1: Trail List
   if (currentScreen === 'list' || (!activeTrail && !isFreeHike)) {
     return (
       <>
         {renderErrorToast()}
+        {renderInfoToast()}
         <TrailListScreen
           savedTrails={savedTrails}
           onSelectTrail={handleSelectTrail}
@@ -1669,12 +1712,13 @@ export default function App() {
       className="h-screen w-screen flex flex-col overflow-hidden select-none bg-[var(--bg)] text-[var(--text)] font-[family-name:var(--font-body)]"
     >
       {renderErrorToast()}
+      {renderInfoToast()}
       {/* Top Header Bar */}
       <header
-        className="px-3 py-2 shrink-0 flex items-center justify-between gap-2 bg-[var(--surface)]"
+        className="px-3 py-2 shrink-0 flex items-center justify-between gap-2 bg-[var(--surface)] overflow-x-auto"
         style={{ borderBottom: 'var(--border-w-strong) solid var(--border-color)' }}
       >
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             id="back-to-trails-btn"
             onClick={() => {
