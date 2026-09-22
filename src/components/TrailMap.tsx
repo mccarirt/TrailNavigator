@@ -6,7 +6,7 @@ import { Units, formatElevation } from '../utils/units';
 import { calculateBearing, getPointAtDistance } from '../utils/geo';
 
 interface TrailMapProps {
-  trail: Trail;
+  trail: Trail | null;
   userPosition: UserPosition | null;
   projectedPosition: ProjectedPosition | null;
   targetPoint: GeoPoint | null;
@@ -82,8 +82,9 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // First point or center of trail
-    const startPoint = trail.points[0] || { lat: 37.7749, lon: -122.4194 };
+    // First point of the trail, or the trail's center - or San Francisco as a harmless
+    // default center for a free hike (no trail), before the first GPS fix pans there.
+    const startPoint = trail?.points[0] || { lat: 37.7749, lon: -122.4194 };
 
     const map = L.map(mapContainerRef.current, {
       center: [startPoint.lat, startPoint.lon],
@@ -99,40 +100,42 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       subdomains: 'abc',
     }).addTo(map);
 
-    // Initial trail fit bounds
-    if (trail.points.length > 0) {
-      const latLngs = trail.points.map(p => [p.lat, p.lon] as [number, number]);
-      const bounds = L.latLngBounds(latLngs);
-      map.fitBounds(bounds, { padding: [40, 40] });
+    if (trail) {
+      // Initial trail fit bounds
+      if (trail.points.length > 0) {
+        const latLngs = trail.points.map(p => [p.lat, p.lon] as [number, number]);
+        const bounds = L.latLngBounds(latLngs);
+        map.fitBounds(bounds, { padding: [40, 40] });
+      }
+
+      // Double-stroke Trail line for maximum outdoor sunlight readability.
+      // Multi-segment array avoids bridging gaps between distinct trkseg/trk.
+      // Default (SVG) renderer, so these are real DOM <path> elements and can use CSS variables.
+      const polylineSegments =
+        trail.segments && trail.segments.length > 0
+          ? trail.segments.map(seg => seg.map(p => [p.lat, p.lon] as [number, number]))
+          : [trail.points.map(p => [p.lat, p.lon] as [number, number])];
+
+      // Outer dark outline
+      const outline = L.polyline(polylineSegments, {
+        color: 'var(--border-color)',
+        weight: 10,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      trailPolylineOutlineRef.current = outline;
+
+      // Inner bright vivid line
+      const core = L.polyline(polylineSegments, {
+        color: 'var(--accent-2)',
+        weight: 6,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      trailPolylineCoreRef.current = core;
     }
-
-    // Double-stroke Trail line for maximum outdoor sunlight readability.
-    // Multi-segment array avoids bridging gaps between distinct trkseg/trk.
-    // Default (SVG) renderer, so these are real DOM <path> elements and can use CSS variables.
-    const polylineSegments =
-      trail.segments && trail.segments.length > 0
-        ? trail.segments.map(seg => seg.map(p => [p.lat, p.lon] as [number, number]))
-        : [trail.points.map(p => [p.lat, p.lon] as [number, number])];
-
-    // Outer dark outline
-    const outline = L.polyline(polylineSegments, {
-      color: 'var(--border-color)',
-      weight: 10,
-      opacity: 0.9,
-      lineCap: 'round',
-      lineJoin: 'round',
-    }).addTo(map);
-    trailPolylineOutlineRef.current = outline;
-
-    // Inner bright vivid line
-    const core = L.polyline(polylineSegments, {
-      color: 'var(--accent-2)',
-      weight: 6,
-      opacity: 1,
-      lineCap: 'round',
-      lineJoin: 'round',
-    }).addTo(map);
-    trailPolylineCoreRef.current = core;
 
     // Live "My Route" Layer Group & Canvas Renderer
     // Drawn above the planned trail line, below markers
@@ -180,7 +183,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     }
 
     // Start Marker
-    if (trail.points.length > 0) {
+    if (trail && trail.points.length > 0) {
       const start = trail.points[0];
       const startIcon = L.divIcon({
         className: 'custom-start-marker',
@@ -192,7 +195,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     }
 
     // End Marker
-    if (trail.points.length > 1) {
+    if (trail && trail.points.length > 1) {
       const end = trail.points[trail.points.length - 1];
       const endIcon = L.divIcon({
         className: 'custom-end-marker',
@@ -266,7 +269,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     userMarkerRef.current = userMarker;
 
     // If no user position yet, fit the map view to the whole trail
-    if (!userPosition && trail.points.length > 0) {
+    if (!userPosition && trail && trail.points.length > 0) {
       const latLngs = trail.points.map(p => [p.lat, p.lon] as [number, number]);
       map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40] });
     }
@@ -282,19 +285,27 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       }
     });
 
-    // Invalidate size on load & when dimensions change
-    setTimeout(() => {
-      map.invalidateSize();
+    // Invalidate size on load & when dimensions change.
+    // Both callbacks are guarded against the map already being torn down (component
+    // unmounted, or trail.id changed and this effect re-ran) by the time they fire -
+    // otherwise Leaflet throws reading _leaflet_pos off the removed map pane.
+    const invalidateSizeTimeout = setTimeout(() => {
+      if (mapInstanceRef.current === map) {
+        map.invalidateSize();
+      }
     }, 250);
 
     const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (mapInstanceRef.current === map) {
+        map.invalidateSize();
+      }
     });
     if (mapContainerRef.current) {
       resizeObserver.observe(mapContainerRef.current);
     }
 
     return () => {
+      clearTimeout(invalidateSizeTimeout);
       resizeObserver.disconnect();
       map.remove();
       mapInstanceRef.current = null;
@@ -304,7 +315,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
       lastRenderedSegCountRef.current = 0;
       lastRenderedPtCountRef.current = 0;
     };
-  }, [trail.id]);
+  }, [trail?.id]);
 
   // Incremental Live Route polyline updates
   useEffect(() => {
@@ -455,7 +466,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     if (!waypointsGroupRef.current) return;
     waypointsGroupRef.current.clearLayers();
 
-    if (!trail.waypoints || trail.waypoints.length === 0) return;
+    if (!trail || !trail.waypoints || trail.waypoints.length === 0) return;
 
     trail.waypoints.forEach((wpt, index) => {
       const wptIcon = L.divIcon({
@@ -507,7 +518,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         offset: [0, -24],
       });
     });
-  }, [trail.id, trail.waypoints, units]);
+  }, [trail?.id, trail?.waypoints, units]);
 
   // Direction-of-travel arrows along the trail line, so a loop's walking direction is visible
   // on the map itself (not just implied by turn cues). Flips when the hiker reverses direction.
@@ -515,6 +526,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     if (!directionArrowsGroupRef.current) return;
     directionArrowsGroupRef.current.clearLayers();
 
+    if (!trail) return; // Free hike: no planned route to draw arrows on
     const points = trail.points;
     if (!points || points.length < 2) return;
 
@@ -549,7 +561,7 @@ export const TrailMap: React.FC<TrailMapProps> = ({
         directionArrowsGroupRef.current!
       );
     }
-  }, [trail.id, trail.points, isReverseMode]);
+  }, [trail?.id, trail?.points, isReverseMode]);
 
   // Update User Position & Heading
   useEffect(() => {
@@ -584,28 +596,39 @@ export const TrailMap: React.FC<TrailMapProps> = ({
     if (userMarkerRef.current) {
       userMarkerRef.current.setLatLng(latLng);
 
-      // Update orientation heading pointer HTML
+      // Update orientation heading pointer. Rotate the existing cone element in place
+      // rather than calling setIcon() on every fix: setIcon() replaces the marker's DOM
+      // element, and Leaflet's position updater from the setLatLng() above can still be
+      // queued (rAF) against the now-detached old element, throwing
+      // "Cannot read properties of undefined (reading '_leaflet_pos')".
       const headingDeg = heading || 0;
-      const markerHtml = `
-        <div id="user-live-dot-wrapper" style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
-          <!-- Orientation Cone -->
-          <div style="position:absolute;width:34px;height:34px;transform:rotate(${headingDeg}deg);display:flex;justify-content:center;pointer-events:none;">
-            <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--info);margin-top:-6px;"></div>
+      const existingCone = userMarkerRef.current
+        .getElement()
+        ?.querySelector<HTMLElement>('[data-role="heading-cone"]');
+      if (existingCone) {
+        existingCone.style.transform = `rotate(${headingDeg}deg)`;
+      } else {
+        const markerHtml = `
+          <div id="user-live-dot-wrapper" style="position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;">
+            <!-- Orientation Cone -->
+            <div data-role="heading-cone" style="position:absolute;width:34px;height:34px;transform:rotate(${headingDeg}deg);display:flex;justify-content:center;pointer-events:none;">
+              <div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid var(--info);margin-top:-6px;"></div>
+            </div>
+            <!-- Pulsing Radar Ring -->
+            <div style="position:absolute;width:30px;height:30px;border-radius:50%;background:var(--info);opacity:0.3;animation:pulse 2s infinite;"></div>
+            <!-- Core Dot -->
+            <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:var(--info);border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,0.6);"></div>
           </div>
-          <!-- Pulsing Radar Ring -->
-          <div style="position:absolute;width:30px;height:30px;border-radius:50%;background:var(--info);opacity:0.3;animation:pulse 2s infinite;"></div>
-          <!-- Core Dot -->
-          <div style="position:absolute;width:18px;height:18px;border-radius:50%;background:var(--info);border:3px solid var(--surface);box-shadow:0 2px 8px rgba(0,0,0,0.6);"></div>
-        </div>
-      `;
-      userMarkerRef.current.setIcon(
-        L.divIcon({
-          className: 'user-live-marker',
-          html: markerHtml,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
-        })
-      );
+        `;
+        userMarkerRef.current.setIcon(
+          L.divIcon({
+            className: 'user-live-marker',
+            html: markerHtml,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+          })
+        );
+      }
     }
 
     // Update Accuracy Circle
@@ -644,8 +667,16 @@ export const TrailMap: React.FC<TrailMapProps> = ({
   };
 
   const handleFitTrail = () => {
-    if (mapInstanceRef.current && trail.points.length > 0) {
+    if (!mapInstanceRef.current) return;
+    if (trail && trail.points.length > 0) {
       const latLngs = trail.points.map(p => [p.lat, p.lon] as [number, number]);
+      mapInstanceRef.current.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
+      return;
+    }
+    // Free hike: no planned trail, so fit the recorded route so far instead
+    const walked = breadcrumbs.flat();
+    if (walked.length > 0) {
+      const latLngs = walked.map(p => [p.lat, p.lon] as [number, number]);
       mapInstanceRef.current.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50] });
     }
   };

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Trophy, Clock, Route, TrendingUp, ChevronLeft, Repeat, X, Download } from 'lucide-react';
+import React, { useState } from 'react';
+import { Trophy, Clock, Route, TrendingUp, ChevronLeft, Repeat, X, Download, Save, Check } from 'lucide-react';
 import { formatTotalTime, formatDist } from './StatsBar';
 import { Units, formatElevationParts } from '../utils/units';
 import { exportBreadcrumbsToGPX } from '../utils/gpxParser';
@@ -17,6 +17,10 @@ interface FinishSummaryModalProps {
   onReverseTrail?: () => void;
   breadcrumbs?: BreadcrumbPoint[][];
   units?: Units;
+  // Free Hike: recorded with no planned trail, so it can be saved as a real, repeatable
+  // trail (with auto-generated turn cues) instead of just exported.
+  freeHike?: boolean;
+  onSaveAsTrail?: () => void;
 }
 
 export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
@@ -31,7 +35,10 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
   onReverseTrail,
   breadcrumbs = [],
   units = 'imperial',
+  freeHike = false,
+  onSaveAsTrail,
 }) => {
+  const [savedAsTrail, setSavedAsTrail] = useState(false);
   if (!isOpen) return null;
 
   const dist = formatDist(totalDistanceMeters, units);
@@ -87,11 +94,11 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
           className="inline-block px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider text-white mb-2 shadow-sm"
           style={{ background: 'var(--accent-2)' }}
         >
-          Destination Reached
+          {freeHike ? 'Hike Recorded' : 'Destination Reached'}
         </div>
 
         <h2 id="finish-summary-title" className="text-2xl font-extrabold tracking-tight mb-1 font-[family-name:var(--font-display)]">
-          Trail Completed!
+          {freeHike ? 'Nice Hike!' : 'Trail Completed!'}
         </h2>
         <p className="text-sm font-semibold text-[var(--text-secondary)] mb-6 truncate max-w-xs mx-auto">
           {trailName}
@@ -144,6 +151,32 @@ export const FinishSummaryModal: React.FC<FinishSummaryModalProps> = ({
 
         {/* Action Buttons */}
         <div className="space-y-2.5">
+          {/* Save this Free Hike as a real, repeatable trail (with auto-generated turn cues) */}
+          {freeHike && onSaveAsTrail && (
+            <button
+              id="save-hike-as-trail-btn"
+              onClick={() => {
+                onSaveAsTrail();
+                setSavedAsTrail(true);
+              }}
+              disabled={savedAsTrail}
+              className="w-full py-3 px-4 rounded-[var(--radius-md)] font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98] hover:opacity-90 disabled:active:scale-100 text-white"
+              style={{ background: savedAsTrail ? 'var(--accent-2)' : 'var(--accent)' }}
+            >
+              {savedAsTrail ? (
+                <>
+                  <Check className="w-4 h-4 shrink-0" />
+                  Saved to Your Trails
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 shrink-0" />
+                  Save as a Repeatable Trail
+                </>
+              )}
+            </button>
+          )}
+
           {/* Save my track as GPX */}
           {breadcrumbs && breadcrumbs.some(seg => seg.length > 0) && (
             <button

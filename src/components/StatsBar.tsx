@@ -15,6 +15,9 @@ interface StatsBarProps {
   onClose?: () => void;
   distanceWalked?: number; // in meters (sum of breadcrumb segments)
   units?: Units;
+  // Free Hike: no planned trail, so "time/distance left" and "trail offset" don't apply -
+  // show just Time, Pace, and Distance walked instead of the usual 4-tile trail-relative grid.
+  freeHike?: boolean;
 }
 
 // Format Total Time (hh:mm:ss or mm:ss)
@@ -68,6 +71,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({
   onClose,
   distanceWalked = 0,
   units = 'imperial',
+  freeHike = false,
 }) => {
 
   const remaining = formatDist(distanceRemaining, units);
@@ -106,103 +110,157 @@ export const StatsBar: React.FC<StatsBarProps> = ({
           </div>
         )}
 
-        {/* The 4 requested metrics in clear, high-contrast prominent cards */}
-        <div className="grid grid-cols-4 gap-1.5 text-center">
-          {/* 1. Total Time */}
-          <div
-            id="stat-total-time"
-            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
-          >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
-              <Timer className="w-3 h-3 text-[var(--info)] shrink-0" />
-              <span className="truncate">Total Time</span>
-            </div>
-            <div className="mt-0.5">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
-                {formatTotalTime(totalElapsedSeconds)}
-              </span>
-            </div>
-          </div>
-
-          {/* 2. Pace */}
-          <div
-            id="stat-pace"
-            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
-          >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
-              <Footprints className="w-3 h-3 text-[var(--accent)] shrink-0" />
-              <span className="truncate">Pace</span>
-            </div>
-            <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
-                {pace.val}
-              </span>
-              <span className="text-[9px] font-bold text-[var(--text-secondary)]">{pace.unit}</span>
-            </div>
-          </div>
-
-          {/* 3. Time Remaining */}
-          <div
-            id="stat-time-remaining"
-            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
-          >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
-              <Clock className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
-              <span className="truncate">Time Left</span>
-            </div>
-            <div className="mt-0.5">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
-                {formatTimeRemaining(estimatedTimeRemainingSeconds, distanceRemaining)}
-              </span>
-            </div>
-          </div>
-
-          {/* 4. Distance Remaining */}
-          <div
-            id="stat-dist-remaining"
-            className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
-          >
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
-              <Route className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
-              <span className="truncate">{isReverseMode ? 'To Start' : 'Dist Left'}</span>
-            </div>
-            <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
-                {remaining.val}
-              </span>
-              <span className="text-xs font-bold text-[var(--text-secondary)]">{remaining.unit}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Secondary Sub-Row: Distance Completed, Distance Actually Walked & Offset from Trail */}
-        <div className="flex flex-wrap items-center justify-between gap-y-1 px-2 text-[11px] font-bold text-[var(--text-secondary)]">
-          <div className="flex items-center gap-3">
-            <div>
-              Along Trail: <strong className="text-[var(--text)]">{soFar.val} {soFar.unit}</strong>
-            </div>
-            <div id="stat-distance-walked">
-              Walked: <strong className="text-[var(--accent)]">{walked.val} {walked.unit}</strong>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span>Trail offset:</span>
-            <span
-              className={`px-1.5 py-0.5 rounded font-extrabold ${isDistAlert ? 'animate-pulse' : ''}`}
-              style={
-                isDistAlert
-                  ? { background: 'var(--danger)', color: '#fff' }
-                  : isDistWarning
-                  ? { background: 'var(--accent)', color: '#fff' }
-                  : { color: 'var(--text)' }
-              }
+        {/* Free Hike: just Time, Pace, and Distance walked - no trail to measure "remaining" against */}
+        {freeHike ? (
+          <div className="grid grid-cols-3 gap-1.5 text-center">
+            <div
+              id="stat-total-time"
+              className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
             >
-              {fromTrailText}
-            </span>
-            {isDistAlert && <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)]" />}
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                <Timer className="w-3 h-3 text-[var(--info)] shrink-0" />
+                <span className="truncate">Total Time</span>
+              </div>
+              <div className="mt-0.5">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                  {formatTotalTime(totalElapsedSeconds)}
+                </span>
+              </div>
+            </div>
+
+            <div
+              id="stat-pace"
+              className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+            >
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                <Footprints className="w-3 h-3 text-[var(--accent)] shrink-0" />
+                <span className="truncate">Pace</span>
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                  {pace.val}
+                </span>
+                <span className="text-[9px] font-bold text-[var(--text-secondary)]">{pace.unit}</span>
+              </div>
+            </div>
+
+            <div
+              id="stat-distance-walked"
+              className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+            >
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                <Route className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
+                <span className="truncate">Distance</span>
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                  {walked.val}
+                </span>
+                <span className="text-xs font-bold text-[var(--text-secondary)]">{walked.unit}</span>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* The 4 requested metrics in clear, high-contrast prominent cards */}
+            <div className="grid grid-cols-4 gap-1.5 text-center">
+              {/* 1. Total Time */}
+              <div
+                id="stat-total-time"
+                className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+              >
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                  <Timer className="w-3 h-3 text-[var(--info)] shrink-0" />
+                  <span className="truncate">Total Time</span>
+                </div>
+                <div className="mt-0.5">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                    {formatTotalTime(totalElapsedSeconds)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 2. Pace */}
+              <div
+                id="stat-pace"
+                className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+              >
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                  <Footprints className="w-3 h-3 text-[var(--accent)] shrink-0" />
+                  <span className="truncate">Pace</span>
+                </div>
+                <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                    {pace.val}
+                  </span>
+                  <span className="text-[9px] font-bold text-[var(--text-secondary)]">{pace.unit}</span>
+                </div>
+              </div>
+
+              {/* 3. Time Remaining */}
+              <div
+                id="stat-time-remaining"
+                className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+              >
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                  <Clock className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
+                  <span className="truncate">Time Left</span>
+                </div>
+                <div className="mt-0.5">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                    {formatTimeRemaining(estimatedTimeRemainingSeconds, distanceRemaining)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 4. Distance Remaining */}
+              <div
+                id="stat-dist-remaining"
+                className="p-1.5 rounded-[var(--radius-sm)] border flex flex-col justify-between bg-[var(--surface-2)] border-[var(--border-color)]"
+              >
+                <div className="text-[10px] font-extrabold uppercase tracking-wider text-[var(--text-secondary)] flex items-center justify-center gap-1">
+                  <Route className="w-3 h-3 text-[var(--accent-2)] shrink-0" />
+                  <span className="truncate">{isReverseMode ? 'To Start' : 'Dist Left'}</span>
+                </div>
+                <div className="mt-0.5 flex items-baseline justify-center gap-0.5">
+                  <span className="text-base sm:text-lg font-extrabold tracking-tight font-mono font-[family-name:var(--font-display)]">
+                    {remaining.val}
+                  </span>
+                  <span className="text-xs font-bold text-[var(--text-secondary)]">{remaining.unit}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Secondary Sub-Row: Distance Completed, Distance Actually Walked & Offset from Trail */}
+            <div className="flex flex-wrap items-center justify-between gap-y-1 px-2 text-[11px] font-bold text-[var(--text-secondary)]">
+              <div className="flex items-center gap-3">
+                <div>
+                  Along Trail: <strong className="text-[var(--text)]">{soFar.val} {soFar.unit}</strong>
+                </div>
+                <div>
+                  Walked: <strong className="text-[var(--accent)]">{walked.val} {walked.unit}</strong>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span>Trail offset:</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded font-extrabold ${isDistAlert ? 'animate-pulse' : ''}`}
+                  style={
+                    isDistAlert
+                      ? { background: 'var(--danger)', color: '#fff' }
+                      : isDistWarning
+                      ? { background: 'var(--accent)', color: '#fff' }
+                      : { color: 'var(--text)' }
+                  }
+                >
+                  {fromTrailText}
+                </span>
+                {isDistAlert && <AlertTriangle className="w-3.5 h-3.5 text-[var(--danger)]" />}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

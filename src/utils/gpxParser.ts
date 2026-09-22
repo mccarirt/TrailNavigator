@@ -55,6 +55,129 @@ export function computeElevationGainLoss(
   };
 }
 
+export interface RawTrailPoint {
+  lat: number;
+  lon: number;
+  ele?: number;
+  time?: string;
+}
+
+/**
+ * Builds a full Trail (distances, elevation gain/loss, turn cues, round-trip detection,
+ * bounds) from raw point segments - the shared pipeline behind both GPX file parsing and
+ * turning a recorded free hike into a real, repeatable trail.
+ * - Drops points under 2 m from the previous one in their segment
+ * - Does not bridge the gap between segments as distance
+ */
+export function buildTrailFromRawSegments(
+  rawSegments: RawTrailPoint[][],
+  name: string,
+  fileName: string,
+  waypoints: Waypoint[] = []
+): Trail {
+  const segments: GeoPoint[][] = [];
+  const points: GeoPoint[] = [];
+  let cumDistance = 0;
+  let minLat = Infinity, maxLat = -Infinity;
+  let minLon = Infinity, maxLon = -Infinity;
+
+  for (const rawSeg of rawSegments) {
+    const currentSegment: GeoPoint[] = [];
+
+    for (const raw of rawSeg) {
+      const { lat, lon } = raw;
+
+      if (currentSegment.length > 0) {
+        const prev = currentSegment[currentSegment.length - 1];
+        const dist = haversineDistance(prev.lat, prev.lon, lat, lon);
+        if (dist < 2.0) {
+          continue; // Drop points under 2 m
+        }
+        cumDistance += dist;
+      }
+
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLon = Math.min(minLon, lon);
+      maxLon = Math.max(maxLon, lon);
+
+      const pt: GeoPoint = {
+        lat,
+        lon,
+        ele: raw.ele !== undefined && !isNaN(raw.ele) ? Math.round(raw.ele * 10) / 10 : undefined,
+        time: raw.time,
+        cumDistance,
+      };
+
+      currentSegment.push(pt);
+      points.push(pt);
+    }
+
+    if (currentSegment.length > 0) {
+      segments.push(currentSegment);
+    }
+  }
+
+  for (const wpt of waypoints) {
+    minLat = Math.min(minLat, wpt.lat);
+    maxLat = Math.max(maxLat, wpt.lat);
+    minLon = Math.min(minLon, wpt.lon);
+    maxLon = Math.max(maxLon, wpt.lon);
+  }
+
+  if (points.length < 2) {
+    throw new Error('Not enough coordinate points (minimum 2 required) to build a trail.');
+  }
+
+  const { gain: elevationGain, loss: elevationLoss } = computeElevationGainLoss(segments, 3.0);
+  const turnCues = precomputeTurnCues(points);
+  const isRoundTrip = detectIsRoundTrip(points);
+
+  return {
+    id: `trail-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    name,
+    fileName,
+    createdAt: Date.now(),
+    points,
+    segments,
+    waypoints: waypoints.length > 0 ? waypoints : undefined,
+    totalDistance: cumDistance,
+    elevationGain: elevationGain > 0 ? elevationGain : undefined,
+    elevationLoss: elevationLoss > 0 ? elevationLoss : undefined,
+    turnCues,
+    isRoundTrip: isRoundTrip || undefined,
+    bounds: {
+      minLat,
+      maxLat,
+      minLon,
+      maxLon,
+    },
+  };
+}
+
+/**
+ * Turns a recorded free hike (live breadcrumb segments) into a full, repeatable Trail -
+ * same pipeline as uploading a GPX file, including auto-generated turn cues, so it can be
+ * saved and navigated again later.
+ */
+export function createTrailFromBreadcrumbs(
+  breadcrumbSegments: BreadcrumbPoint[][],
+  name: string = 'Free Hike'
+): Trail {
+  const rawSegments: RawTrailPoint[][] = breadcrumbSegments
+    .filter(seg => seg.length > 0)
+    .map(seg =>
+      seg.map(pt => ({
+        lat: pt.lat,
+        lon: pt.lon,
+        ele: pt.ele,
+        time: new Date(pt.timestamp).toISOString(),
+      }))
+    );
+
+  return buildTrailFromRawSegments(rawSegments, name, `${name}.gpx`);
+}
+
 /**
  * Parses GPX XML text into a Trail structure.
  * - Handles multiple trkseg and trk without bridging gaps (new segment, jump not counted as distance)
@@ -181,17 +304,9 @@ export function parseGpx(gpxText: string, defaultName: string = 'Unnamed Trail')
     }
   }
 
-  const segments: GeoPoint[][] = [];
-  const points: GeoPoint[] = [];
-  let cumDistance = 0;
-  let minLat = Infinity, maxLat = -Infinity;
-  let minLon = Infinity, maxLon = -Infinity;
-
-  for (const segElList of rawSegments) {
-    const currentSegment: GeoPoint[] = [];
-
-    for (let i = 0; i < segElList.length; i++) {
-      const el = segElList[i];
+  const rawPointSegments: RawTrailPoint[][] = rawSegments.map(segElList => {
+    const seg: RawTrailPoint[] = [];
+    for (const el of segElList) {
       const latStr = el.getAttribute('lat');
       const lonStr = el.getAttribute('lon');
       if (!latStr || !lonStr) continue;
@@ -213,76 +328,18 @@ export function parseGpx(gpxText: string, defaultName: string = 'Unnamed Trail')
       const timeEl = el.querySelector('time');
       const time = timeEl?.textContent?.trim() || undefined;
 
-      // Drop points under 2 m from the previous one in this segment
-      if (currentSegment.length > 0) {
-        const prev = currentSegment[currentSegment.length - 1];
-        const dist = haversineDistance(prev.lat, prev.lon, lat, lon);
-        if (dist < 2.0) {
-          continue; // Drop points under 2 m
-        }
-        cumDistance += dist;
-      } else {
-        // Start of a new segment: do NOT count the gap jump from previous segment as distance!
-      }
-
-      minLat = Math.min(minLat, lat);
-      maxLat = Math.max(maxLat, lat);
-      minLon = Math.min(minLon, lon);
-      maxLon = Math.max(maxLon, lon);
-
-      const pt: GeoPoint = {
-        lat,
-        lon,
-        ele: ele !== undefined && !isNaN(ele) ? Math.round(ele * 10) / 10 : undefined,
-        time,
-        cumDistance,
-      };
-
-      currentSegment.push(pt);
-      points.push(pt);
+      seg.push({ lat, lon, ele, time });
     }
+    return seg;
+  });
 
-    if (currentSegment.length > 0) {
-      segments.push(currentSegment);
-    }
-  }
-
-  // Include waypoints in boundary calculation
-  for (const wpt of waypoints) {
-    minLat = Math.min(minLat, wpt.lat);
-    maxLat = Math.max(maxLat, wpt.lat);
-    minLon = Math.min(minLon, wpt.lon);
-    maxLon = Math.max(maxLon, wpt.lon);
-  }
-
-  if (points.length < 2) {
+  let trail: Trail;
+  try {
+    trail = buildTrailFromRawSegments(rawPointSegments, name, defaultName, waypoints);
+  } catch {
     throw new Error('GPX file contains insufficient coordinate points (minimum 2 required).');
   }
-
-  const { gain: elevationGain, loss: elevationLoss } = computeElevationGainLoss(segments, 3.0);
-  const turnCues = precomputeTurnCues(points);
-  const isRoundTrip = detectIsRoundTrip(points);
-
-  return {
-    id: `trail-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    name,
-    fileName: defaultName,
-    createdAt: Date.now(),
-    points,
-    segments,
-    waypoints: waypoints.length > 0 ? waypoints : undefined,
-    totalDistance: cumDistance,
-    elevationGain: elevationGain > 0 ? elevationGain : undefined,
-    elevationLoss: elevationLoss > 0 ? elevationLoss : undefined,
-    turnCues,
-    isRoundTrip: isRoundTrip || undefined,
-    bounds: {
-      minLat,
-      maxLat,
-      minLon,
-      maxLon,
-    },
-  };
+  return trail;
 }
 
 /**
