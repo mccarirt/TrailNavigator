@@ -349,7 +349,7 @@ export const TrailListScreen: React.FC<TrailListScreenProps> = ({
                       className="flex-1 py-3 px-4 rounded-[var(--radius-md)] bg-[var(--accent)] hover:opacity-90 active:scale-98 text-white font-extrabold text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
                     >
                       <Navigation className="w-4 h-4" />
-                      Start Navigation
+                      Select This Route
                     </button>
                     {onReverseTrail && (
                       <button
